@@ -77,7 +77,7 @@ class AudioEngine {
      * @param {Object} sourceNode - Source object from createSource()
      * @param {number} x - New X position
      * @param {number} z - New Z position
-     * @param {number} volume - New volume (0.0 - 1.0)
+     * @param {number} volume - New volume (0.0 - 2.0)
      * @param {number} pitch - New playback rate
      * @param {boolean} muted - Whether to mute the source
      * @param {number} hearingRange - Max distance to hear audio
@@ -94,13 +94,20 @@ class AudioEngine {
         const dz = z - listenerZ;
         const distance = Math.sqrt(dx * dx + dz * dz);
 
-        // Apply muting and hearing range
+        // Apply muting and hearing range with distance attenuation
         let finalVolume = 0;
-        if (!muted && distance <= hearingRange) {
-            finalVolume = volume;
+        
+        if (!muted) {
+            if (distance <= hearingRange) {
+                // Calculate distance factor (1.0 at distance 0, 0.0 at max hearing range)
+                const distanceFactor = 1.0 - (distance / hearingRange);
+                // Apply volume with distance attenuation
+                finalVolume = volume * Math.max(0, distanceFactor);
+            }
         }
         
-        sourceNode.gainNode.gain.value = Math.max(0, Math.min(1, finalVolume));
+        // Clamp to valid gain range (0.0 to 2.0 - Web Audio API supports this)
+        sourceNode.gainNode.gain.value = Math.max(0, Math.min(2, finalVolume));
     }
 
     /**

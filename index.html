@@ -653,21 +653,6 @@
         <div class="left-panel" id="leftPanel">
             <div class="panel-header">Properties</div>
             <div class="panel-content">
-                <!-- Object Info section -->
-                <div class="properties-section">
-                    <div class="section-title">Object Info</div>
-                    <div class="section-content">
-                        <div class="form-group">
-                            <label class="form-label">Scene</label>
-                            <input type="text" id="sceneInfoInput" placeholder="Current Scene" disabled style="background-color: #1a1a20;">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Object Name</label>
-                            <input type="text" id="objectNameInput" placeholder="Enter object name" disabled oninput="window.uiController && window.uiController.onObjectNameChange(this.value)">
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Audio Controls section -->
                 <div class="properties-section">
                     <div class="section-title">Audio Controls</div>
@@ -709,6 +694,17 @@
                 <div class="properties-section">
                     <div class="section-title">Scene Objects</div>
                     <div class="section-content" id="objectsListSection">
+                        <!-- Object Info section -->
+                        <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #2d2d3d;">
+                            <div class="form-group">
+                                <label class="form-label">Scene</label>
+                                <input type="text" id="sceneInfoInput" placeholder="Current Scene" disabled style="background-color: #1a1a20;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Object Name</label>
+                                <input type="text" id="objectNameInput" placeholder="Enter object name" disabled oninput="window.uiController && window.uiController.onObjectNameChange(this.value)">
+                            </div>
+                        </div>
                         <div id="objectsListContainer" style="display: flex; flex-direction: column; gap: 8px;">
                             <!-- Objects will be populated here -->
                         </div>

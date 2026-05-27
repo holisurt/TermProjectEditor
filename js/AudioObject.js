@@ -18,7 +18,7 @@ class AudioObject {
         this.imagePath = '';
 
         // Audio properties
-        this.volume = 1.0;      // 0.0 - 1.0
+        this.volume = 1.0;      // 0.0 - 2.0
         this.pitch = 1.0;       // 0.5 - 2.0
         this.muted = false;     // Mute toggle
         this.hearingRange = 500; // Max distance to hear audio in pixels

@@ -145,7 +145,7 @@ class UIController {
 
         // Audio properties
         if (propertyName === 'volume') {
-            obj.volume = Math.max(0, Math.min(1, numValue));
+            obj.volume = Math.max(0, Math.min(2, numValue));
         } else if (propertyName === 'pitch') {
             obj.pitch = Math.max(0.5, Math.min(2.0, numValue));
         } else if (propertyName === 'hearingRange') {
@@ -187,6 +187,7 @@ class UIController {
     updatePropertiesPanel(obj) {
         if (!obj) {
             // Disable all controls
+            document.getElementById('sceneInfoInput').value = '';
             document.getElementById('objectNameInput').disabled = true;
             document.getElementById('objectNameInput').value = '';
 
@@ -207,6 +208,8 @@ class UIController {
         }
 
         // Enable and populate controls
+        document.getElementById('sceneInfoInput').value = `${this.scene.getObjects().length} objects`;
+        
         document.getElementById('objectNameInput').disabled = false;
         document.getElementById('objectNameInput').value = obj.name;
 
@@ -509,17 +512,34 @@ class UIController {
     /**
      * Delete selected object
      */
-    deleteSelectedObject() {
-        if (this.scene.selectedIndex >= 0) {
-            const obj = this.scene.getSelectedObject();
+    /**
+     * Delete selected object from scene
+     * @param {number} objectIndex - Index of object to delete
+     */
+    deleteObject(objectIndex) {
+        if (objectIndex >= 0 && objectIndex < this.scene.getObjects().length) {
+            const obj = this.scene.getObjects()[objectIndex];
             if (obj && obj.audioSource) {
                 this.audioEngine.stopSource(obj.audioSource);
             }
-            this.scene.removeObject(this.scene.selectedIndex);
+            this.scene.removeObject(objectIndex);
+            
+            // Clear selection after deletion
+            this.scene.setSelectedIndex(-1);
+            
             this.updateObjectsLibrary();
             this.updateObjectsList();
             this.updatePropertiesPanel(null);
             this.showToast('Object deleted');
+        }
+    }
+
+    /**
+     * Delete selected object (legacy)
+     */
+    deleteSelectedObject() {
+        if (this.scene.selectedIndex >= 0) {
+            this.deleteObject(this.scene.selectedIndex);
         }
     }
 
@@ -577,8 +597,7 @@ class UIController {
             deleteBtn.textContent = 'Delete';
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.scene.setSelectedIndex(index);
-                this.deleteSelectedObject();
+                this.deleteObject(index);
             });
             actionsDiv.appendChild(deleteBtn);
 
@@ -623,7 +642,6 @@ class UIController {
      */
     openEditObjectModal(obj, index) {
         this.currentEditingObjectIndex = index;
-        this.currentEditingObject = obj;
 
         document.getElementById('editObjectName').textContent = obj.name;
         document.getElementById('editObjectNameInput').value = obj.name;
@@ -638,7 +656,6 @@ class UIController {
      */
     closeEditObjectModal() {
         document.getElementById('editObjectModal').classList.remove('active');
-        this.currentEditingObject = null;
         this.currentEditingObjectIndex = -1;
     }
 
@@ -646,7 +663,12 @@ class UIController {
      * Handle Edit Object confirmation
      */
     async onEditObjectConfirm() {
-        const obj = this.currentEditingObject;
+        if (this.currentEditingObjectIndex < 0 || this.currentEditingObjectIndex >= this.scene.getObjects().length) {
+            alert('Invalid object selection');
+            return;
+        }
+
+        const obj = this.scene.getObjects()[this.currentEditingObjectIndex];
         if (!obj) return;
 
         const newName = document.getElementById('editObjectNameInput').value.trim();

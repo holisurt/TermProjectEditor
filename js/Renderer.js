@@ -238,6 +238,24 @@ class Renderer {
             );
         }
 
+        // Draw hearing range ring (for selected objects)
+        if (isSelected && obj.hearingRange) {
+            const screenRadius = obj.hearingRange * this.zoom;
+            
+            // Semi-transparent fill
+            this.ctx.fillStyle = 'rgba(0, 255, 150, 0.08)';
+            this.ctx.beginPath();
+            this.ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Ring border
+            this.ctx.strokeStyle = 'rgba(0, 255, 150, 0.4)';
+            this.ctx.lineWidth = 2 * this.zoom;
+            this.ctx.beginPath();
+            this.ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+
         // Draw object label
         this.ctx.fillStyle = '#e0e0e0';
         this.ctx.font = `${12 * this.zoom}px sans-serif`;
