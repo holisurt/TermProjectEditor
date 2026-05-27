@@ -238,6 +238,9 @@ function animationLoop(time) {
 // ═══════════════════════════════════════════════════════════
 
 function updateAudioSources() {
+    const spectatorX = window.scene.spectator.x;
+    const spectatorZ = window.scene.spectator.z;
+
     window.scene.getObjects().forEach(obj => {
         if (obj.audioSource) {
             window.audioEngine.updateSource(
@@ -245,7 +248,11 @@ function updateAudioSources() {
                 obj.x,
                 obj.z,
                 obj.volume,
-                obj.pitch
+                obj.pitch,
+                obj.muted || false,
+                obj.hearingRange || 500,
+                spectatorX,
+                spectatorZ
             );
         }
     });

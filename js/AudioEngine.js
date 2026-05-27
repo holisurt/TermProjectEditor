@@ -79,12 +79,28 @@ class AudioEngine {
      * @param {number} z - New Z position
      * @param {number} volume - New volume (0.0 - 1.0)
      * @param {number} pitch - New playback rate
+     * @param {boolean} muted - Whether to mute the source
+     * @param {number} hearingRange - Max distance to hear audio
+     * @param {number} listenerX - Listener X position for distance calculation
+     * @param {number} listenerZ - Listener Z position for distance calculation
      */
-    updateSource(sourceNode, x, z, volume, pitch) {
+    updateSource(sourceNode, x, z, volume, pitch, muted = false, hearingRange = 500, listenerX = 0, listenerZ = 0) {
         sourceNode.panner.positionX.value = x;
         sourceNode.panner.positionZ.value = z;
-        sourceNode.gainNode.gain.value = Math.max(0, Math.min(1, volume));
         sourceNode.source.playbackRate.value = pitch;
+
+        // Calculate distance from listener to sound source
+        const dx = x - listenerX;
+        const dz = z - listenerZ;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+
+        // Apply muting and hearing range
+        let finalVolume = 0;
+        if (!muted && distance <= hearingRange) {
+            finalVolume = volume;
+        }
+        
+        sourceNode.gainNode.gain.value = Math.max(0, Math.min(1, finalVolume));
     }
 
     /**

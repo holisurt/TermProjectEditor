@@ -20,6 +20,8 @@ class AudioObject {
         // Audio properties
         this.volume = 1.0;      // 0.0 - 1.0
         this.pitch = 1.0;       // 0.5 - 2.0
+        this.muted = false;     // Mute toggle
+        this.hearingRange = 500; // Max distance to hear audio in pixels
         
         // Image filter properties
         this.brightness = 0.0;  // -1.0 to 1.0
@@ -135,6 +137,8 @@ class AudioObject {
             z: this.z,
             volume: this.volume,
             pitch: this.pitch,
+            muted: this.muted,
+            hearingRange: this.hearingRange,
             brightness: this.brightness,
             saturation: this.saturation,
             hue: this.hue,

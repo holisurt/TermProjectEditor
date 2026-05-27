@@ -436,6 +436,60 @@
             border-color: #0066cc;
         }
 
+        .button.small {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .button.danger {
+            background-color: #cc2200;
+            border-color: #cc2200;
+            color: #fff;
+        }
+
+        .button.danger:hover {
+            background-color: #ff3311;
+            border-color: #ff3311;
+        }
+
+        /* Object list item */
+        .object-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background-color: var(--bg-button);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: background-color var(--transition-speed), border-color var(--transition-speed);
+        }
+
+        .object-item:hover {
+            background-color: var(--bg-button-hover);
+            border-color: var(--border-secondary);
+        }
+
+        .object-item.selected {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: #000;
+        }
+
+        .object-item-name {
+            flex: 1;
+            font-size: var(--font-size-body);
+            color: inherit;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .object-item-actions {
+            display: flex;
+            gap: 4px;
+        }
+
         /* Objects library sidebar */
         .objects-library {
             position: fixed;
@@ -604,6 +658,10 @@
                     <div class="section-title">Object Info</div>
                     <div class="section-content">
                         <div class="form-group">
+                            <label class="form-label">Scene</label>
+                            <input type="text" id="sceneInfoInput" placeholder="Current Scene" disabled style="background-color: #1a1a20;">
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">Object Name</label>
                             <input type="text" id="objectNameInput" placeholder="Enter object name" disabled oninput="window.uiController && window.uiController.onObjectNameChange(this.value)">
                         </div>
@@ -619,7 +677,7 @@
                                 <span>Volume</span>
                                 <span class="slider-value" id="volumeValue">1.0</span>
                             </div>
-                            <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" disabled oninput="window.uiController && window.uiController.onPropertySliderChange('volume', this.value)">
+                            <input type="range" id="volumeSlider" min="0" max="2" step="0.01" value="1" disabled oninput="window.uiController && window.uiController.onPropertySliderChange('volume', this.value)">
                         </div>
 
                         <div class="slider-group">
@@ -629,10 +687,33 @@
                             </div>
                             <input type="range" id="pitchSlider" min="0.5" max="2.0" step="0.01" value="1" disabled oninput="window.uiController && window.uiController.onPropertySliderChange('pitch', this.value)">
                         </div>
+
+                        <div class="form-group">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="muteCheckbox" disabled onchange="window.uiController && window.uiController.onPropertyCheckboxChange('muted', this.checked)">
+                                <label class="form-label" style="margin: 0; flex: 1;">Mute Audio</label>
+                            </div>
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-label">
+                                <span>Hearing Range</span>
+                                <span class="slider-value" id="hearingRangeValue">500px</span>
+                            </div>
+                            <input type="range" id="hearingRangeSlider" min="50" max="1000" step="10" value="500" disabled oninput="window.uiController && window.uiController.onPropertySliderChange('hearingRange', this.value)">
+                        </div>
                     </div>
                 </div>
 
-                <!-- Image Controls section -->
+                <!-- Objects List section -->
+                <div class="properties-section">
+                    <div class="section-title">Scene Objects</div>
+                    <div class="section-content" id="objectsListSection">
+                        <div id="objectsListContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Objects will be populated here -->
+                        </div>
+                    </div>
+                </div>
                 <div class="properties-section">
                     <div class="section-title">Image Controls</div>
                     <div class="section-content" id="imageControlsSection">
@@ -756,6 +837,38 @@
             <div class="modal-buttons">
                 <button class="button" onclick="window.uiController && window.uiController.closeLoadSceneModal()">Cancel</button>
                 <button class="button primary" onclick="window.uiController && window.uiController.onLoadSceneConfirm()">Load</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Object Modal -->
+    <div class="modal" id="editObjectModal">
+        <div class="modal-overlay" onclick="window.uiController && window.uiController.closeEditObjectModal()"></div>
+        <div class="modal-dialog">
+            <div class="modal-title">Edit Object: <span id="editObjectName"></span></div>
+            <div class="modal-content">
+                <div class="form-group">
+                    <label class="form-label">Object Name</label>
+                    <input type="text" id="editObjectNameInput" placeholder="Enter object name">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Replace Audio File</label>
+                    <input type="file" id="editAudioFile" accept=".mp3,.wav">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Replace Image File</label>
+                    <input type="file" id="editImageFile" accept=".png,.jpg,.jpeg,.gif,.bmp">
+                </div>
+
+                <div style="padding: 10px; background-color: var(--bg-button); border-radius: var(--border-radius); font-size: 12px; color: var(--text-secondary);">
+                    Leave file fields empty to keep current files
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="button" onclick="window.uiController && window.uiController.closeEditObjectModal()">Cancel</button>
+                <button class="button primary" onclick="window.uiController && window.uiController.onEditObjectConfirm()">Save Changes</button>
             </div>
         </div>
     </div>

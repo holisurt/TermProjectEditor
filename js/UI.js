@@ -148,6 +148,8 @@ class UIController {
             obj.volume = Math.max(0, Math.min(1, numValue));
         } else if (propertyName === 'pitch') {
             obj.pitch = Math.max(0.5, Math.min(2.0, numValue));
+        } else if (propertyName === 'hearingRange') {
+            obj.hearingRange = Math.max(50, Math.min(1000, numValue));
         }
         // Image properties
         else if (propertyName === 'brightness') {
@@ -163,13 +165,17 @@ class UIController {
         }
 
         // Update audio source if applicable
-        if (obj.audioSource && (propertyName === 'volume' || propertyName === 'pitch')) {
+        if (obj.audioSource && (propertyName === 'volume' || propertyName === 'pitch' || propertyName === 'hearingRange')) {
             this.audioEngine.updateSource(
                 obj.audioSource,
                 obj.x,
                 obj.z,
                 obj.volume,
-                obj.pitch
+                obj.pitch,
+                obj.muted,
+                obj.hearingRange,
+                this.scene.spectator.x,
+                this.scene.spectator.z
             );
         }
     }
@@ -185,7 +191,7 @@ class UIController {
             document.getElementById('objectNameInput').value = '';
 
             const allSliders = [
-                'volumeSlider', 'pitchSlider',
+                'volumeSlider', 'pitchSlider', 'hearingRangeSlider',
                 'brightnessSlider', 'saturationSlider', 'hueSlider',
                 'grayscaleSlider', 'blurSlider'
             ];
@@ -193,6 +199,9 @@ class UIController {
             allSliders.forEach(id => {
                 document.getElementById(id).disabled = true;
             });
+
+            document.getElementById('muteCheckbox').disabled = true;
+            document.getElementById('muteCheckbox').checked = false;
 
             return;
         }
@@ -209,6 +218,15 @@ class UIController {
         document.getElementById('pitchSlider').disabled = false;
         document.getElementById('pitchSlider').value = obj.pitch;
         document.getElementById('pitchValue').textContent = obj.pitch.toFixed(2);
+
+        // Mute checkbox
+        document.getElementById('muteCheckbox').disabled = false;
+        document.getElementById('muteCheckbox').checked = obj.muted;
+
+        // Hearing range slider
+        document.getElementById('hearingRangeSlider').disabled = false;
+        document.getElementById('hearingRangeSlider').value = obj.hearingRange;
+        document.getElementById('hearingRangeValue').textContent = obj.hearingRange + 'px';
 
         // Image sliders
         document.getElementById('brightnessSlider').disabled = false;
@@ -230,6 +248,9 @@ class UIController {
         document.getElementById('blurSlider').disabled = false;
         document.getElementById('blurSlider').value = obj.blur;
         document.getElementById('blurValue').textContent = obj.blur.toFixed(2);
+
+        // Update objects list highlighting
+        this.updateObjectsList();
     }
 
     /**
@@ -496,8 +517,187 @@ class UIController {
             }
             this.scene.removeObject(this.scene.selectedIndex);
             this.updateObjectsLibrary();
+            this.updateObjectsList();
             this.updatePropertiesPanel(null);
             this.showToast('Object deleted');
+        }
+    }
+
+    /**
+     * Update the objects list in the properties panel
+     */
+    updateObjectsList() {
+        const container = document.getElementById('objectsListContainer');
+        container.innerHTML = '';
+
+        const objects = this.scene.getObjects();
+
+        if (objects.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.cssText = 'padding: 12px; color: #a0a0a0; text-align: center; font-size: 12px;';
+            emptyMsg.textContent = 'No objects in scene';
+            container.appendChild(emptyMsg);
+            return;
+        }
+
+        objects.forEach((obj, index) => {
+            const item = document.createElement('div');
+            item.className = 'object-item' + (this.scene.selectedIndex === index ? ' selected' : '');
+            
+            // Object name label
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'object-item-name';
+            nameSpan.textContent = obj.name;
+            nameSpan.style.cursor = 'pointer';
+            nameSpan.addEventListener('click', () => {
+                this.scene.setSelectedIndex(index);
+                this.updateObjectsList();
+                this.updateObjectsLibrary();
+                this.updatePropertiesPanel(obj);
+            });
+            item.appendChild(nameSpan);
+
+            // Action buttons container
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'object-item-actions';
+
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.className = 'button small';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openEditObjectModal(obj, index);
+            });
+            actionsDiv.appendChild(editBtn);
+
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'button small danger';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.scene.setSelectedIndex(index);
+                this.deleteSelectedObject();
+            });
+            actionsDiv.appendChild(deleteBtn);
+
+            item.appendChild(actionsDiv);
+            container.appendChild(item);
+        });
+    }
+
+    /**
+     * Handle property checkbox change (e.g., mute)
+     * @param {string} propertyName - Property name
+     * @param {boolean} checked - Checkbox state
+     */
+    onPropertyCheckboxChange(propertyName, checked) {
+        const obj = this.scene.getSelectedObject();
+        if (!obj) return;
+
+        if (propertyName === 'muted') {
+            obj.muted = checked;
+        }
+
+        // Update audio source if applicable
+        if (obj.audioSource) {
+            this.audioEngine.updateSource(
+                obj.audioSource,
+                obj.x,
+                obj.z,
+                obj.volume,
+                obj.pitch,
+                obj.muted,
+                obj.hearingRange,
+                this.scene.spectator.x,
+                this.scene.spectator.z
+            );
+        }
+    }
+
+    /**
+     * Open Edit Object modal
+     * @param {AudioObject} obj - Object to edit
+     * @param {number} index - Object index
+     */
+    openEditObjectModal(obj, index) {
+        this.currentEditingObjectIndex = index;
+        this.currentEditingObject = obj;
+
+        document.getElementById('editObjectName').textContent = obj.name;
+        document.getElementById('editObjectNameInput').value = obj.name;
+        document.getElementById('editAudioFile').value = '';
+        document.getElementById('editImageFile').value = '';
+
+        document.getElementById('editObjectModal').classList.add('active');
+    }
+
+    /**
+     * Close Edit Object modal
+     */
+    closeEditObjectModal() {
+        document.getElementById('editObjectModal').classList.remove('active');
+        this.currentEditingObject = null;
+        this.currentEditingObjectIndex = -1;
+    }
+
+    /**
+     * Handle Edit Object confirmation
+     */
+    async onEditObjectConfirm() {
+        const obj = this.currentEditingObject;
+        if (!obj) return;
+
+        const newName = document.getElementById('editObjectNameInput').value.trim();
+        const audioFileInput = document.getElementById('editAudioFile');
+        const imageFileInput = document.getElementById('editImageFile');
+
+        if (newName && newName !== obj.name) {
+            obj.name = newName;
+        }
+
+        try {
+            // Replace audio file if provided
+            if (audioFileInput.files.length > 0) {
+                const audioFile = audioFileInput.files[0];
+                const arrayBuffer = await audioFile.arrayBuffer();
+                const audioBuffer = await this.audioEngine.decodeAudio(arrayBuffer);
+                
+                // Stop old source if playing
+                if (obj.audioSource) {
+                    this.audioEngine.stopSource(obj.audioSource);
+                }
+
+                obj.audioBuffer = audioBuffer;
+                obj.audioPath = audioFile.name;
+
+                // Create new source and play
+                const sourceNode = this.audioEngine.createSource(
+                    audioBuffer,
+                    obj.x,
+                    obj.z,
+                    obj.volume,
+                    obj.pitch
+                );
+                obj.audioSource = sourceNode;
+                this.audioEngine.playSource(sourceNode);
+            }
+
+            // Replace image file if provided
+            if (imageFileInput.files.length > 0) {
+                const imageFile = imageFileInput.files[0];
+                await this.loadImageFile(imageFile, obj);
+            }
+
+            this.closeEditObjectModal();
+            this.updateObjectsList();
+            this.updateObjectsLibrary();
+            this.updatePropertiesPanel(obj);
+            this.showToast('Object updated!');
+        } catch (error) {
+            console.error('Error updating object:', error);
+            alert('Failed to update object: ' + error.message);
         }
     }
 }
