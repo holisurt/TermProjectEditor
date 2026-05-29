@@ -175,7 +175,8 @@ class UIController {
                 obj.muted,
                 obj.hearingRange,
                 this.scene.spectator.x,
-                this.scene.spectator.z
+                this.scene.spectator.z,
+                this.scene.spectator.hearingRange
             );
         }
     }
@@ -185,6 +186,49 @@ class UIController {
      * @param {AudioObject|null} obj - Object to display, or null
      */
     updatePropertiesPanel(obj) {
+        // Check if spectator is selected
+        const isSpectatorSelected = obj === null && this.scene.spectator.selected;
+        
+        // Hide spectator properties by default
+        document.getElementById('spectatorPropertiesSection').style.display = 'none';
+
+        if (isSpectatorSelected) {
+            // Show spectator properties and hide object properties
+            document.getElementById('spectatorPropertiesSection').style.display = 'block';
+            
+            // Hide object controls
+            document.getElementById('sceneInfoInput').value = '';
+            document.getElementById('objectNameInput').disabled = true;
+            document.getElementById('objectNameInput').value = '';
+
+            const allSliders = [
+                'volumeSlider', 'pitchSlider', 'hearingRangeSlider',
+                'brightnessSlider', 'saturationSlider', 'hueSlider',
+                'grayscaleSlider', 'blurSlider'
+            ];
+
+            allSliders.forEach(id => {
+                document.getElementById(id).disabled = true;
+            });
+
+            document.getElementById('muteCheckbox').disabled = true;
+            document.getElementById('muteCheckbox').checked = false;
+
+            // Update spectator properties
+            document.getElementById('spectatorHearingRangeSlider').value = this.scene.spectator.hearingRange;
+            document.getElementById('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
+            
+            // Update spectator image preview
+            if (this.scene.spectator.image) {
+                document.getElementById('spectatorImagePreview').src = this.scene.spectator.image.src || '';
+            } else {
+                document.getElementById('spectatorImagePreview').src = '';
+            }
+
+            return;
+        }
+
+        // Hide spectator properties if not selected
         if (!obj) {
             // Disable all controls
             document.getElementById('sceneInfoInput').value = '';
@@ -207,7 +251,7 @@ class UIController {
             return;
         }
 
-        // Enable and populate controls
+        // Enable and populate object controls
         document.getElementById('sceneInfoInput').value = `${this.scene.getObjects().length} objects`;
         
         document.getElementById('objectNameInput').disabled = false;
@@ -721,6 +765,68 @@ class UIController {
             console.error('Error updating object:', error);
             alert('Failed to update object: ' + error.message);
         }
+    }
+
+    /**
+     * Handle spectator property change
+     * @param {string} propertyName - Property name (e.g., 'hearingRange')
+     * @param {*} value - New value
+     */
+    onSpectatorPropertyChange(propertyName, value) {
+        if (propertyName === 'hearingRange') {
+            const numValue = parseFloat(value);
+            this.scene.spectator.hearingRange = Math.max(50, Math.min(2000, numValue));
+            document.getElementById('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
+        }
+    }
+
+    /**
+     * Handle spectator image file upload
+     */
+    setupSpectatorImageListener() {
+        const spectatorImageInput = document.getElementById('spectatorImageFile');
+        
+        spectatorImageInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const imageFile = e.target.files[0];
+                try {
+                    await this.loadSpectatorImage(imageFile);
+                    this.showToast('Spectator image updated!');
+                } catch (error) {
+                    alert('Failed to load image: ' + error.message);
+                }
+            }
+        });
+    }
+
+    /**
+     * Load spectator image from file
+     * @param {File} imageFile - Image file
+     */
+    loadSpectatorImage(imageFile) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.scene.spectator.image = img;
+                    this.scene.spectator.imagePath = imageFile.name;
+                    document.getElementById('spectatorImagePreview').src = e.target.result;
+                    resolve();
+                };
+                img.onerror = () => {
+                    reject(new Error('Failed to load image'));
+                };
+                img.src = e.target.result;
+            };
+
+            reader.onerror = () => {
+                reject(new Error('Failed to read image file'));
+            };
+
+            reader.readAsDataURL(imageFile);
+        });
     }
 }
 

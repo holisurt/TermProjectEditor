@@ -14,6 +14,11 @@ class Spectator {
 
         // Display properties
         this.radius = 15;
+        this.image = null; // Custom spectator image
+        this.imagePath = ''; // Path to spectator image file
+
+        // Audio properties
+        this.hearingRange = 500; // Max distance to hear audio (in pixels)
 
         // Movement properties
         this.speed = 200; // World units per second (increased for better control)
@@ -77,7 +82,9 @@ class Spectator {
     toJSON() {
         return {
             x: this.x,
-            z: this.z
+            z: this.z,
+            hearingRange: this.hearingRange,
+            imagePath: this.imagePath
         };
     }
 
@@ -88,5 +95,7 @@ class Spectator {
     fromJSON(json) {
         this.x = json.x || 0;
         this.z = json.z || 0;
+        this.hearingRange = json.hearingRange || 500;
+        this.imagePath = json.imagePath || '';
     }
 }

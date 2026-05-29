@@ -50,6 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupUIListeners();
     setupFileInputListeners();
     setupMenuListeners();
+    window.uiController.setupSpectatorImageListener();
+    window.uiController.updatePropertiesPanel(null);  // Show spectator properties by default
 
     // Set canvas size
     const container = document.getElementById('canvasContainer');
@@ -240,6 +242,7 @@ function animationLoop(time) {
 function updateAudioSources() {
     const spectatorX = window.scene.spectator.x;
     const spectatorZ = window.scene.spectator.z;
+    const spectatorHearingRange = window.scene.spectator.hearingRange || 500;
 
     window.scene.getObjects().forEach(obj => {
         if (obj.audioSource) {
@@ -252,7 +255,8 @@ function updateAudioSources() {
                 obj.muted || false,
                 obj.hearingRange || 500,
                 spectatorX,
-                spectatorZ
+                spectatorZ,
+                spectatorHearingRange
             );
         }
     });

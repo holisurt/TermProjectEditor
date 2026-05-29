@@ -653,6 +653,28 @@
         <div class="left-panel" id="leftPanel">
             <div class="panel-header">Properties</div>
             <div class="panel-content">
+                <!-- Spectator Properties section (hidden by default) -->
+                <div class="properties-section" id="spectatorPropertiesSection" style="display: none;">
+                    <div class="section-title">Spectator Properties</div>
+                    <div class="section-content">
+                        <div class="form-group">
+                            <label class="form-label">Profile Picture</label>
+                            <input type="file" id="spectatorImageFile" accept=".png,.jpg,.jpeg,.gif,.bmp">
+                            <div style="margin-top: 8px; padding: 8px; background-color: #1a1a20; border-radius: 4px; text-align: center;">
+                                <img id="spectatorImagePreview" style="max-width: 80px; max-height: 80px; border-radius: 50%; object-fit: cover;">
+                            </div>
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-label">
+                                <span>Hearing Range</span>
+                                <span class="slider-value" id="spectatorHearingRangeValue">500px</span>
+                            </div>
+                            <input type="range" id="spectatorHearingRangeSlider" min="50" max="2000" step="10" value="500" oninput="window.uiController && window.uiController.onSpectatorPropertyChange('hearingRange', this.value)">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Audio Controls section -->
                 <div class="properties-section">
                     <div class="section-title">Audio Controls</div>

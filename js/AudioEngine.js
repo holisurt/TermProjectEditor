@@ -80,11 +80,12 @@ class AudioEngine {
      * @param {number} volume - New volume (0.0 - 2.0)
      * @param {number} pitch - New playback rate
      * @param {boolean} muted - Whether to mute the source
-     * @param {number} hearingRange - Max distance to hear audio
+     * @param {number} hearingRange - Object's max distance to hear audio
      * @param {number} listenerX - Listener X position for distance calculation
      * @param {number} listenerZ - Listener Z position for distance calculation
+     * @param {number} spectatorHearingRange - Spectator's max hearing range (default 500)
      */
-    updateSource(sourceNode, x, z, volume, pitch, muted = false, hearingRange = 500, listenerX = 0, listenerZ = 0) {
+    updateSource(sourceNode, x, z, volume, pitch, muted = false, hearingRange = 500, listenerX = 0, listenerZ = 0, spectatorHearingRange = 500) {
         sourceNode.panner.positionX.value = x;
         sourceNode.panner.positionZ.value = z;
         sourceNode.source.playbackRate.value = pitch;
@@ -98,11 +99,15 @@ class AudioEngine {
         let finalVolume = 0;
         
         if (!muted) {
-            if (distance <= hearingRange) {
-                // Calculate distance factor (1.0 at distance 0, 0.0 at max hearing range)
-                const distanceFactor = 1.0 - (distance / hearingRange);
-                // Apply volume with distance attenuation
-                finalVolume = volume * Math.max(0, distanceFactor);
+            // Check if sound is within spectator's hearing range
+            if (distance <= spectatorHearingRange) {
+                // Also check object's hearing range
+                if (distance <= hearingRange) {
+                    // Calculate distance factor (1.0 at distance 0, 0.0 at max hearing range)
+                    const distanceFactor = 1.0 - (distance / hearingRange);
+                    // Apply volume with distance attenuation
+                    finalVolume = volume * Math.max(0, distanceFactor);
+                }
             }
         }
         

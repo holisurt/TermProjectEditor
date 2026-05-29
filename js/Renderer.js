@@ -126,19 +126,45 @@ class Renderer {
     renderSpectator(spectator) {
         const screenPos = this.worldToScreen(spectator.x, spectator.z);
 
-        // Draw hearing range circle (transparent)
-        const hearingRangeRadius = 80 * this.zoom;
+        // Draw hearing range circle based on spectator's hearing range
+        const hearingRangeRadius = spectator.hearingRange * this.zoom;
         this.ctx.fillStyle = 'rgba(0, 200, 136, 0.1)';
         this.ctx.beginPath();
         this.ctx.arc(screenPos.x, screenPos.y, hearingRangeRadius, 0, Math.PI * 2);
         this.ctx.fill();
 
+        // Draw hearing range border
+        this.ctx.strokeStyle = 'rgba(0, 200, 136, 0.3)';
+        this.ctx.lineWidth = 1 * this.zoom;
+        this.ctx.beginPath();
+        this.ctx.arc(screenPos.x, screenPos.y, hearingRangeRadius, 0, Math.PI * 2);
+        this.ctx.stroke();
+
         // Draw spectator body
         const spectatorRadius = 15 * this.zoom;
-        this.ctx.fillStyle = '#e0e0e0';
-        this.ctx.beginPath();
-        this.ctx.arc(screenPos.x, screenPos.y, spectatorRadius, 0, Math.PI * 2);
-        this.ctx.fill();
+
+        // Draw custom image if available
+        if (spectator.image && spectator.image.complete) {
+            // Draw circular cropped image
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.arc(screenPos.x, screenPos.y, spectatorRadius, 0, Math.PI * 2);
+            this.ctx.clip();
+            this.ctx.drawImage(
+                spectator.image,
+                screenPos.x - spectatorRadius,
+                screenPos.y - spectatorRadius,
+                spectatorRadius * 2,
+                spectatorRadius * 2
+            );
+            this.ctx.restore();
+        } else {
+            // Default spectator circle
+            this.ctx.fillStyle = '#e0e0e0';
+            this.ctx.beginPath();
+            this.ctx.arc(screenPos.x, screenPos.y, spectatorRadius, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
 
         // Draw selection highlight if selected
         if (spectator.selected) {
