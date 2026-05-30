@@ -1,9 +1,29 @@
 /**
  * Renderer.js
  * 2D Canvas rendering engine for the scene
+ * Optimized for performance and visual clarity
  */
 
 class Renderer {
+    // Grid settings
+    static GRID_SIZE = 50;
+    static GRID_COLOR = '#2d2d3d';
+    
+    // Spectator settings
+    static SPECTATOR_RADIUS = 15;
+    static SPECTATOR_LABEL = 'LISTENER';
+    static HEARING_RANGE_ALPHA = 'rgba(0, 200, 136, ';
+    
+    // Object settings
+    static OBJECT_LABEL_OFFSET = 6;
+    static HEARING_RANGE_RING_ALPHA = 'rgba(0, 255, 150, ';
+    
+    // Selection colors
+    static SELECTED_COLOR = '#ffff00';
+    static DEFAULT_BORDER_COLOR = '#888888';
+    static SELECTION_BORDER_WIDTH = 3;
+    static DEFAULT_BORDER_WIDTH = 1;
+
     constructor(canvasElement) {
         this.canvas = canvasElement;
         this.ctx = canvasElement.getContext('2d');
@@ -125,6 +145,7 @@ class Renderer {
      */
     renderSpectator(spectator) {
         const screenPos = this.worldToScreen(spectator.x, spectator.z);
+        const spectatorRadius = 15 * this.zoom;
 
         // Draw hearing range circle based on spectator's hearing range
         const hearingRangeRadius = spectator.hearingRange * this.zoom;
@@ -141,23 +162,16 @@ class Renderer {
         this.ctx.stroke();
 
         // Draw spectator body
-        const spectatorRadius = 15 * this.zoom;
-
-        // Draw custom image if available
         if (spectator.image && spectator.image.complete) {
-            // Draw circular cropped image
-            this.ctx.save();
-            this.ctx.beginPath();
-            this.ctx.arc(screenPos.x, screenPos.y, spectatorRadius, 0, Math.PI * 2);
-            this.ctx.clip();
-            this.ctx.drawImage(
+            this.drawScaledImage(
                 spectator.image,
-                screenPos.x - spectatorRadius,
-                screenPos.y - spectatorRadius,
+                screenPos.x,
+                screenPos.y,
                 spectatorRadius * 2,
-                spectatorRadius * 2
+                spectatorRadius * 2,
+                'none',
+                true
             );
-            this.ctx.restore();
         } else {
             // Default spectator circle
             this.ctx.fillStyle = '#e0e0e0';
@@ -211,7 +225,6 @@ class Renderer {
 
         // Draw object image or placeholder
         if (obj.image && obj.image.complete) {
-            // Apply image filters
             const filterString = this.buildFilterString(
                 obj.brightness,
                 obj.saturation,
@@ -219,16 +232,15 @@ class Renderer {
                 obj.grayscale,
                 obj.blur
             );
-
-            this.ctx.filter = filterString;
-            this.ctx.drawImage(
+            this.drawScaledImage(
                 obj.image,
-                screenPos.x - screenWidth / 2,
-                screenPos.y - screenHeight / 2,
+                screenPos.x,
+                screenPos.y,
                 screenWidth,
-                screenHeight
+                screenHeight,
+                filterString,
+                false
             );
-            this.ctx.filter = 'none';
         } else {
             // Placeholder rectangle
             const hueShift = (obj.hue / 360) * 360;
@@ -323,6 +335,42 @@ class Renderer {
         }
 
         return filters.length > 0 ? filters.join(' ') : 'none';
+    }
+
+    /**
+     * Draw an image with proper scaling and aspect ratio
+     * @param {Image} image - Image to draw
+     * @param {number} screenX - Center screen X position
+     * @param {number} screenY - Center screen Y position
+     * @param {number} screenWidth - Desired screen width
+     * @param {number} screenHeight - Desired screen height
+     * @param {string} filterString - CSS filter string
+     * @param {boolean} isCircular - If true, draw as circular crop
+     */
+    drawScaledImage(image, screenX, screenY, screenWidth, screenHeight, filterString = 'none', isCircular = false) {
+        this.ctx.filter = filterString;
+
+        if (isCircular) {
+            // Draw circular cropped image
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.arc(screenX, screenY, screenWidth / 2, 0, Math.PI * 2);
+            this.ctx.clip();
+        }
+
+        this.ctx.drawImage(
+            image,
+            screenX - screenWidth / 2,
+            screenY - screenHeight / 2,
+            screenWidth,
+            screenHeight
+        );
+
+        if (isCircular) {
+            this.ctx.restore();
+        }
+
+        this.ctx.filter = 'none';
     }
 
     /**

@@ -795,7 +795,7 @@
 
     <!-- Add Object Modal -->
     <div class="modal" id="addObjectModal">
-        <div class="modal-overlay" onclick="closeAddObjectModal()"></div>
+        <div class="modal-overlay" onclick="window.uiController && window.uiController.closeAddObjectModal()"></div>
         <div class="modal-dialog">
             <div class="modal-title">Add Audio Object</div>
             <div class="modal-content">
@@ -823,7 +823,7 @@
 
     <!-- Save Scene Modal -->
     <div class="modal" id="saveSceneModal">
-        <div class="modal-overlay" onclick="closeSaveSceneModal()"></div>
+        <div class="modal-overlay" onclick="window.uiController && window.uiController.closeSaveSceneModal()"></div>
         <div class="modal-dialog">
             <div class="modal-title">Save Scene</div>
             <div class="modal-content">
@@ -841,7 +841,7 @@
 
     <!-- Load Scene Modal -->
     <div class="modal" id="loadSceneModal">
-        <div class="modal-overlay" onclick="closeLoadSceneModal()"></div>
+        <div class="modal-overlay" onclick="window.uiController && window.uiController.closeLoadSceneModal()"></div>
         <div class="modal-dialog">
             <div class="modal-title">Load Scene</div>
             <div class="modal-content">
@@ -892,6 +892,7 @@
     </div>
 
     <!-- Phase 2: External JavaScript files -->
+    <script src="js/Utils.js"></script>
     <script src="js/AudioEngine.js"></script>
     <script src="js/AudioObject.js"></script>
     <script src="js/Spectator.js"></script>

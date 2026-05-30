@@ -16,6 +16,7 @@ class Spectator {
         this.radius = 15;
         this.image = null; // Custom spectator image
         this.imagePath = ''; // Path to spectator image file
+        this.aspectRatio = 1.0; // Aspect ratio for image display
 
         // Audio properties
         this.hearingRange = 500; // Max distance to hear audio (in pixels)
@@ -84,7 +85,8 @@ class Spectator {
             x: this.x,
             z: this.z,
             hearingRange: this.hearingRange,
-            imagePath: this.imagePath
+            imagePath: this.imagePath,
+            aspectRatio: this.aspectRatio
         };
     }
 
@@ -97,5 +99,6 @@ class Spectator {
         this.z = json.z || 0;
         this.hearingRange = json.hearingRange || 500;
         this.imagePath = json.imagePath || '';
+        this.aspectRatio = json.aspectRatio || 1.0;
     }
 }

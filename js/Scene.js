@@ -68,6 +68,7 @@ class Scene {
         // Select new
         if (index >= 0 && index < this.objects.length) {
             this.objects[index].selected = true;
+            this.spectator.setSelected(false);
         }
     }
 

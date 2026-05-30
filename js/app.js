@@ -1,24 +1,58 @@
 /**
  * app.js
  * Main application logic, animation loop, and event handlers
+ * Optimized for performance and maintainability
  */
 
 // ═══════════════════════════════════════════════════════════
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════
 
-window.audioEngine = null;
-window.scene = null;
-window.renderer = null;
-window.inputHandler = null;
-window.uiController = null;
-window.keyStates = {};
-window.lastTime = performance.now();
-
-// UI state
-const uiState = {
-    selectedObjectId: null
+const AppState = {
+    audioEngine: null,
+    scene: null,
+    renderer: null,
+    inputHandler: null,
+    uiController: null,
+    keyStates: {},
+    lastTime: performance.now()
 };
+
+// Make state available globally for backward compatibility
+Object.defineProperty(window, 'audioEngine', {
+    get: () => AppState.audioEngine,
+    set: (v) => { AppState.audioEngine = v; }
+});
+
+Object.defineProperty(window, 'scene', {
+    get: () => AppState.scene,
+    set: (v) => { AppState.scene = v; }
+});
+
+Object.defineProperty(window, 'renderer', {
+    get: () => AppState.renderer,
+    set: (v) => { AppState.renderer = v; }
+});
+
+Object.defineProperty(window, 'inputHandler', {
+    get: () => AppState.inputHandler,
+    set: (v) => { AppState.inputHandler = v; }
+});
+
+Object.defineProperty(window, 'uiController', {
+    get: () => AppState.uiController,
+    set: (v) => { AppState.uiController = v; }
+});
+
+Object.defineProperty(window, 'keyStates', {
+    get: () => AppState.keyStates,
+    set: (v) => { AppState.keyStates = v; }
+});
+
+Object.defineProperty(window, 'lastTime', {
+    get: () => AppState.lastTime,
+    set: (v) => { AppState.lastTime = v; }
+});
 
 // ═══════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -28,21 +62,21 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing Object-Based Audio Editor...');
 
     // Initialize engine and scene
-    window.audioEngine = new AudioEngine();
-    window.scene = new Scene();
+    AppState.audioEngine = new AudioEngine();
+    AppState.scene = new Scene();
 
     // Initialize renderer
     const canvas = document.getElementById('sceneCanvas');
-    window.renderer = new Renderer(canvas);
+    AppState.renderer = new Renderer(canvas);
 
     // Initialize input handler
-    window.inputHandler = new InputHandler(window.renderer, window.scene, window.audioEngine);
+    AppState.inputHandler = new InputHandler(AppState.renderer, AppState.scene, AppState.audioEngine);
 
     // Initialize UI controller
-    window.uiController = new UIController(window.scene, window.audioEngine, window.renderer);
+    AppState.uiController = new UIController(AppState.scene, AppState.audioEngine, AppState.renderer);
 
     // Set up spectator to be selected by default
-    window.scene.spectator.setSelected(true);
+    AppState.scene.spectator.setSelected(true);
 
     // Set up event listeners
     setupKeyboardListeners();
@@ -50,19 +84,19 @@ document.addEventListener('DOMContentLoaded', () => {
     setupUIListeners();
     setupFileInputListeners();
     setupMenuListeners();
-    window.uiController.setupSpectatorImageListener();
-    window.uiController.updatePropertiesPanel(null);  // Show spectator properties by default
+    AppState.uiController.setupSpectatorImageListener();
+    AppState.uiController.updatePropertiesPanel(null);
 
     // Set canvas size
     const container = document.getElementById('canvasContainer');
     function resizeCanvas() {
-        window.renderer.resize(container.clientWidth, container.clientHeight);
+        AppState.renderer.resize(container.clientWidth, container.clientHeight);
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
     // Start animation loop
-    window.lastTime = performance.now();
+    AppState.lastTime = performance.now();
     requestAnimationFrame(animationLoop);
 
     console.log('Initialization complete!');
@@ -74,18 +108,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupKeyboardListeners() {
     document.addEventListener('keydown', (e) => {
-        window.keyStates[e.key] = true;
+        AppState.keyStates[e.key] = true;
 
         // Escape to deselect
         if (e.key === 'Escape') {
-            window.scene.setSelectedIndex(-1);
-            window.scene.spectator.setSelected(true);
+            AppState.scene.setSelectedIndex(-1);
+            AppState.scene.spectator.setSelected(true);
             updateUI();
         }
     });
 
     document.addEventListener('keyup', (e) => {
-        window.keyStates[e.key] = false;
+        AppState.keyStates[e.key] = false;
     });
 }
 
@@ -97,13 +131,13 @@ function setupCanvasListeners() {
     const canvas = document.getElementById('sceneCanvas');
 
     // Use input handler for mouse events
-    canvas.addEventListener('mousedown', (e) => window.inputHandler.onMouseDown(e));
-    canvas.addEventListener('mousemove', (e) => window.inputHandler.onMouseMove(e));
-    canvas.addEventListener('mouseup', (e) => window.inputHandler.onMouseUp(e));
-    canvas.addEventListener('mouseleave', (e) => window.inputHandler.onMouseUp(e));
+    canvas.addEventListener('mousedown', (e) => AppState.inputHandler.onMouseDown(e));
+    canvas.addEventListener('mousemove', (e) => AppState.inputHandler.onMouseMove(e));
+    canvas.addEventListener('mouseup', (e) => AppState.inputHandler.onMouseUp(e));
+    canvas.addEventListener('mouseleave', (e) => AppState.inputHandler.onMouseUp(e));
 
-    // BUG FIX 3: Register wheel event for zoom (passive: false allows preventDefault)
-    canvas.addEventListener('wheel', (e) => window.inputHandler.onWheel(e), { passive: false });
+    // Register wheel event for zoom (passive: false allows preventDefault)
+    canvas.addEventListener('wheel', (e) => AppState.inputHandler.onWheel(e), { passive: false });
 
     // Prevent context menu on right-click
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -117,9 +151,9 @@ function setupUIListeners() {
     // Close modals with Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            document.getElementById('addObjectModal').classList.remove('active');
-            document.getElementById('saveSceneModal').classList.remove('active');
-            document.getElementById('loadSceneModal').classList.remove('active');
+            ['addObjectModal', 'saveSceneModal', 'loadSceneModal'].forEach(modalId => {
+                document.getElementById(modalId).classList.remove('active');
+            });
         }
     });
 
@@ -130,7 +164,7 @@ function setupUIListeners() {
         { modal: document.getElementById('loadSceneModal'), overlay: 'loadSceneModal' }
     ];
 
-    modals.forEach(({ modal, overlay }) => {
+    modals.forEach(({ modal }) => {
         const overlayEl = modal.querySelector('.modal-overlay');
         if (overlayEl) {
             overlayEl.addEventListener('click', () => {
@@ -150,11 +184,11 @@ function setupFileInputListeners() {
     const imageFileInput = document.getElementById('modalImageFile');
 
     audioFileInput.addEventListener('change', () => {
-        window.uiController.currentAudioFile = audioFileInput.files[0] || null;
+        AppState.uiController.currentAudioFile = audioFileInput.files[0] || null;
     });
 
     imageFileInput.addEventListener('change', () => {
-        window.uiController.currentImageFile = imageFileInput.files[0] || null;
+        AppState.uiController.currentImageFile = imageFileInput.files[0] || null;
     });
 }
 
@@ -178,27 +212,22 @@ function setupMenuListeners() {
         }
     });
 
-    // Add Object button
-    document.getElementById('addObjectBtn').addEventListener('click', () => {
-        window.uiController.openAddObjectModal();
-    });
+    // Setup menu buttons
+    setupMenuButton('addObjectBtn', () => AppState.uiController.openAddObjectModal());
+    setupMenuButton('saveSceneBtn', () => AppState.uiController.openSaveSceneModal());
+    setupMenuButton('loadSceneBtn', () => AppState.uiController.openLoadSceneModal());
+    setupMenuButton('togglePanelBtn', () => AppState.uiController.toggleObjectsLibrary());
+}
 
-    // Save Scene button
-    document.getElementById('saveSceneBtn').addEventListener('click', () => {
-        window.uiController.openSaveSceneModal();
-    });
-
-    // Load Scene button
-    document.getElementById('loadSceneBtn').addEventListener('click', () => {
-        window.uiController.openLoadSceneModal();
-    });
-
-    // Objects Library toggle button
-    const toggleBtn = document.getElementById('togglePanelBtn');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            window.uiController.toggleObjectsLibrary();
-        });
+/**
+ * Setup a menu button with click handler
+ * @param {string} buttonId - Button element ID
+ * @param {Function} handler - Click handler
+ */
+function setupMenuButton(buttonId, handler) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        button.addEventListener('click', handler);
     }
 }
 
@@ -207,29 +236,28 @@ function setupMenuListeners() {
 // ═══════════════════════════════════════════════════════════
 
 function animationLoop(time) {
-    const deltaTime = Math.min((time - window.lastTime) / 1000, 0.016); // Cap at 60 FPS
-    window.lastTime = time;
+    const deltaTime = Math.min((time - AppState.lastTime) / 1000, 0.016); // Cap at 60 FPS
+    AppState.lastTime = time;
 
     // Update scene (spectator movement, etc.)
-    window.scene.update(deltaTime, window.keyStates);
+    AppState.scene.update(deltaTime, AppState.keyStates);
 
     // Update audio listener position
-    const specPos = window.scene.spectator.getPosition();
-    window.audioEngine.updateListener(specPos.x, specPos.z);
+    const specPos = AppState.scene.spectator.getPosition();
+    AppState.audioEngine.updateListener(specPos.x, specPos.z);
 
     // Update all audio sources
     updateAudioSources();
 
     // Get current mouse position for hover detection
-    const rect = window.renderer.canvas.getBoundingClientRect();
-    const mouseX = window.inputHandler.lastMouseX;
-    const mouseY = window.inputHandler.lastMouseY;
+    const mouseX = AppState.inputHandler.lastMouseX;
+    const mouseY = AppState.inputHandler.lastMouseY;
 
     // Render scene
-    window.renderer.renderScene(window.scene, mouseX, mouseY);
+    AppState.renderer.renderScene(AppState.scene, mouseX, mouseY);
 
     // Update properties panel
-    window.uiController.updatePropertiesPanel(window.scene.getSelectedObject());
+    AppState.uiController.updatePropertiesPanel(AppState.scene.getSelectedObject());
 
     // Continue animation loop
     requestAnimationFrame(animationLoop);
@@ -239,14 +267,17 @@ function animationLoop(time) {
 // AUDIO SOURCE MANAGEMENT
 // ═══════════════════════════════════════════════════════════
 
+/**
+ * Update all active audio sources with current positions and properties
+ */
 function updateAudioSources() {
-    const spectatorX = window.scene.spectator.x;
-    const spectatorZ = window.scene.spectator.z;
-    const spectatorHearingRange = window.scene.spectator.hearingRange || 500;
+    const spectatorX = AppState.scene.spectator.x;
+    const spectatorZ = AppState.scene.spectator.z;
+    const spectatorHearingRange = AppState.scene.spectator.hearingRange || 500;
 
-    window.scene.getObjects().forEach(obj => {
+    AppState.scene.getObjects().forEach(obj => {
         if (obj.audioSource) {
-            window.audioEngine.updateSource(
+            AppState.audioEngine.updateSource(
                 obj.audioSource,
                 obj.x,
                 obj.z,
@@ -260,4 +291,11 @@ function updateAudioSources() {
             );
         }
     });
+}
+
+/**
+ * Update UI (backward compatibility)
+ */
+function updateUI() {
+    AppState.uiController.updatePropertiesPanel(AppState.scene.getSelectedObject());
 }

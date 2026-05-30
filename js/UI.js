@@ -90,9 +90,12 @@ class UIController {
 
             // Add to scene
             this.scene.addObject(newObj);
+            this.scene.setSelectedIndex(this.scene.getObjects().length - 1);
 
             // Update UI
             this.updateObjectsLibrary();
+            this.updateObjectsList();
+            this.updatePropertiesPanel(newObj);
             this.closeAddObjectModal();
             this.showToast('Object added!');
         } catch (error) {
@@ -102,7 +105,7 @@ class UIController {
     }
 
     /**
-     * Load image file into AudioObject
+     * Load image file into AudioObject with aspect ratio preservation
      * @param {File} imageFile - Image file
      * @param {AudioObject} obj - Target object
      */
@@ -115,6 +118,11 @@ class UIController {
                 img.onload = () => {
                     obj.image = img;
                     obj.imagePath = imageFile.name;
+                    // Preserve aspect ratio: set height based on width to maintain proportion
+                    const baseSize = 40;
+                    obj.width = baseSize;
+                    obj.aspectRatio = img.width / img.height;
+                    obj.height = baseSize / obj.aspectRatio;
                     resolve();
                 };
                 img.onerror = () => {
@@ -800,7 +808,7 @@ class UIController {
     }
 
     /**
-     * Load spectator image from file
+     * Load spectator image from file with aspect ratio preservation
      * @param {File} imageFile - Image file
      */
     loadSpectatorImage(imageFile) {
@@ -812,6 +820,7 @@ class UIController {
                 img.onload = () => {
                     this.scene.spectator.image = img;
                     this.scene.spectator.imagePath = imageFile.name;
+                    this.scene.spectator.aspectRatio = img.width / img.height;
                     document.getElementById('spectatorImagePreview').src = e.target.result;
                     resolve();
                 };

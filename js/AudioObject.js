@@ -1,9 +1,37 @@
 /**
  * AudioObject.js
  * Represents an audio object in the scene with spatial properties
+ * Optimized for performance
  */
 
 class AudioObject {
+    // Default audio properties
+    static DEFAULT_VOLUME = 1.0;
+    static DEFAULT_PITCH = 1.0;
+    static DEFAULT_HEARING_RANGE = 500;
+    static DEFAULT_WIDTH = 40;
+    static DEFAULT_HEIGHT = 40;
+
+    // Audio property ranges
+    static VOLUME_MIN = 0.0;
+    static VOLUME_MAX = 2.0;
+    static PITCH_MIN = 0.5;
+    static PITCH_MAX = 2.0;
+    static HEARING_RANGE_MIN = 50;
+    static HEARING_RANGE_MAX = 1000;
+
+    // Image filter ranges
+    static BRIGHTNESS_MIN = -1.0;
+    static BRIGHTNESS_MAX = 1.0;
+    static SATURATION_MIN = 0.0;
+    static SATURATION_MAX = 2.0;
+    static HUE_MIN = 0;
+    static HUE_MAX = 360;
+    static GRAYSCALE_MIN = 0.0;
+    static GRAYSCALE_MAX = 1.0;
+    static BLUR_MIN = 0.0;
+    static BLUR_MAX = 1.0;
+
     constructor(name, x = 0, z = 0) {
         // Unique identifier
         this.id = generateUUID();
@@ -18,17 +46,17 @@ class AudioObject {
         this.imagePath = '';
 
         // Audio properties
-        this.volume = 1.0;      // 0.0 - 2.0
-        this.pitch = 1.0;       // 0.5 - 2.0
-        this.muted = false;     // Mute toggle
-        this.hearingRange = 500; // Max distance to hear audio in pixels
+        this.volume = AudioObject.DEFAULT_VOLUME;
+        this.pitch = AudioObject.DEFAULT_PITCH;
+        this.muted = false;
+        this.hearingRange = AudioObject.DEFAULT_HEARING_RANGE;
         
         // Image filter properties
-        this.brightness = 0.0;  // -1.0 to 1.0
-        this.saturation = 1.0;  // 0.0 to 2.0
-        this.hue = 0.0;         // 0.0 to 360
-        this.grayscale = 0.0;   // 0.0 to 1.0
-        this.blur = 0.0;        // 0.0 to 1.0 (pixels)
+        this.brightness = 0.0;
+        this.saturation = 1.0;
+        this.hue = 0.0;
+        this.grayscale = 0.0;
+        this.blur = 0.0;
 
         // Selection state
         this.selected = false;
@@ -41,8 +69,9 @@ class AudioObject {
         this.image = null; // HTML Image or loaded image data
 
         // Display properties
-        this.width = 40;
-        this.height = 40;
+        this.width = AudioObject.DEFAULT_WIDTH;
+        this.height = AudioObject.DEFAULT_HEIGHT;
+        this.aspectRatio = 1.0; // Aspect ratio for image display
     }
 
     /**
@@ -145,41 +174,33 @@ class AudioObject {
             grayscale: this.grayscale,
             blur: this.blur,
             width: this.width,
-            height: this.height
+            height: this.height,
+            aspectRatio: this.aspectRatio
         };
     }
 
     /**
-     * Create AudioObject from JSON
-     * @param {Object} json - JSON object
-     * @returns {AudioObject} Reconstructed object
+     * Create AudioObject from JSON data
+     * @param {Object} json - JSON representation
+     * @returns {AudioObject} New AudioObject instance
      */
     static fromJSON(json) {
-        const obj = new AudioObject(json.name, json.x, json.z);
-        obj.id = json.id;
-        obj.audioPath = json.audioPath;
-        obj.imagePath = json.imagePath;
-        obj.volume = json.volume;
-        obj.pitch = json.pitch;
-        obj.brightness = json.brightness;
-        obj.saturation = json.saturation;
-        obj.hue = json.hue;
-        obj.grayscale = json.grayscale;
-        obj.blur = json.blur;
-        obj.width = json.width;
-        obj.height = json.height;
+        const obj = new AudioObject(json.name || 'Untitled Object', json.x || 0, json.z || 0);
+        obj.id = json.id || obj.id;
+        obj.audioPath = json.audioPath || '';
+        obj.imagePath = json.imagePath || '';
+        obj.volume = json.volume ?? AudioObject.DEFAULT_VOLUME;
+        obj.pitch = json.pitch ?? AudioObject.DEFAULT_PITCH;
+        obj.muted = json.muted ?? false;
+        obj.hearingRange = json.hearingRange ?? AudioObject.DEFAULT_HEARING_RANGE;
+        obj.brightness = json.brightness ?? 0.0;
+        obj.saturation = json.saturation ?? 1.0;
+        obj.hue = json.hue ?? 0.0;
+        obj.grayscale = json.grayscale ?? 0.0;
+        obj.blur = json.blur ?? 0.0;
+        obj.width = json.width ?? AudioObject.DEFAULT_WIDTH;
+        obj.height = json.height ?? AudioObject.DEFAULT_HEIGHT;
+        obj.aspectRatio = json.aspectRatio || 1.0;
         return obj;
     }
-}
-
-/**
- * Generate a UUID v4
- * @returns {string} UUID
- */
-function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 }
