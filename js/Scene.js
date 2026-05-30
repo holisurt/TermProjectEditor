@@ -4,10 +4,18 @@
  */
 
 class Scene {
+    static WIDTH = 3000;
+    static HEIGHT = 2000;
+    static HALF_WIDTH = Scene.WIDTH / 2;
+    static HALF_HEIGHT = Scene.HEIGHT / 2;
+
     constructor() {
         this.objects = [];           // Array of AudioObject
         this.spectator = new Spectator();
         this.selectedIndex = -1;     // Index of selected object (-1 if none)
+        this.backgroundImage = null;
+        this.backgroundImageSrc = '';
+        this.backgroundImagePath = '';
     }
 
     /**
@@ -15,6 +23,8 @@ class Scene {
      * @param {AudioObject} audioObject - Object to add
      */
     addObject(audioObject) {
+        const pos = this.clampPosition(audioObject.x, audioObject.z);
+        audioObject.setPosition(pos.x, pos.z);
         this.objects.push(audioObject);
     }
 
@@ -27,6 +37,8 @@ class Scene {
             this.objects.splice(index, 1);
             if (this.selectedIndex === index) {
                 this.selectedIndex = -1;
+            } else if (this.selectedIndex > index) {
+                this.selectedIndex -= 1;
             }
         }
     }
@@ -117,6 +129,8 @@ class Scene {
      */
     update(deltaTime, keyStates) {
         this.spectator.update(deltaTime, keyStates);
+        const spectatorPos = this.clampPosition(this.spectator.x, this.spectator.z);
+        this.spectator.setPosition(spectatorPos.x, spectatorPos.z);
     }
 
     /**
@@ -126,7 +140,11 @@ class Scene {
     toJSON() {
         return {
             spectator: this.spectator.toJSON(),
-            objects: this.objects.map(obj => obj.toJSON())
+            objects: this.objects.map(obj => obj.toJSON()),
+            backgroundImageSrc: this.backgroundImageSrc,
+            backgroundImagePath: this.backgroundImagePath,
+            width: Scene.WIDTH,
+            height: Scene.HEIGHT
         };
     }
 
@@ -140,6 +158,10 @@ class Scene {
         
         if (json.spectator) {
             scene.spectator.fromJSON(json.spectator);
+        }
+
+        if (json.backgroundImageSrc) {
+            scene.setBackgroundImage(json.backgroundImageSrc, json.backgroundImagePath || '');
         }
 
         if (json.objects && Array.isArray(json.objects)) {
@@ -158,6 +180,9 @@ class Scene {
         this.objects = [];
         this.selectedIndex = -1;
         this.spectator = new Spectator();
+        this.backgroundImage = null;
+        this.backgroundImageSrc = '';
+        this.backgroundImagePath = '';
     }
 
     /**
@@ -174,5 +199,37 @@ class Scene {
      */
     getObjectCount() {
         return this.objects.length;
+    }
+
+    /**
+     * Clamp a world position to the fixed 3000x2000 scene bounds.
+     * @param {number} x - World X
+     * @param {number} z - World Z
+     * @returns {Object} Clamped { x, z }
+     */
+    clampPosition(x, z) {
+        return {
+            x: Math.max(-Scene.HALF_WIDTH, Math.min(Scene.HALF_WIDTH, x)),
+            z: Math.max(-Scene.HALF_HEIGHT, Math.min(Scene.HALF_HEIGHT, z))
+        };
+    }
+
+    /**
+     * Set scene background image from a data URL.
+     * @param {string} imageSrc - Data URL
+     * @param {string} imagePath - Original file name
+     */
+    setBackgroundImage(imageSrc, imagePath = '') {
+        this.backgroundImageSrc = imageSrc;
+        this.backgroundImagePath = imagePath;
+
+        if (!imageSrc) {
+            this.backgroundImage = null;
+            return;
+        }
+
+        const img = new Image();
+        img.src = imageSrc;
+        this.backgroundImage = img;
     }
 }

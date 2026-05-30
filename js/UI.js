@@ -12,6 +12,8 @@ class UIController {
         // Add Object modal state
         this.currentAudioFile = null;
         this.currentImageFile = null;
+        this.currentEditingObjectIndex = -1;
+        this.objectsListSignature = '';
 
         // Toast notification
         this.toastTimeout = null;
@@ -91,10 +93,11 @@ class UIController {
             // Add to scene
             this.scene.addObject(newObj);
             this.scene.setSelectedIndex(this.scene.getObjects().length - 1);
+            this.updateAllAudioSources();
 
             // Update UI
             this.updateObjectsLibrary();
-            this.updateObjectsList();
+            this.updateObjectsList(true);
             this.updatePropertiesPanel(newObj);
             this.closeAddObjectModal();
             this.showToast('Object added!');
@@ -154,10 +157,13 @@ class UIController {
         // Audio properties
         if (propertyName === 'volume') {
             obj.volume = Math.max(0, Math.min(2, numValue));
+            document.getElementById('volumeValue').textContent = obj.volume.toFixed(2);
         } else if (propertyName === 'pitch') {
             obj.pitch = Math.max(0.5, Math.min(2.0, numValue));
+            document.getElementById('pitchValue').textContent = obj.pitch.toFixed(2);
         } else if (propertyName === 'hearingRange') {
             obj.hearingRange = Math.max(50, Math.min(1000, numValue));
+            document.getElementById('hearingRangeValue').textContent = obj.hearingRange + 'px';
         }
         // Image properties
         else if (propertyName === 'brightness') {
@@ -174,18 +180,7 @@ class UIController {
 
         // Update audio source if applicable
         if (obj.audioSource && (propertyName === 'volume' || propertyName === 'pitch' || propertyName === 'hearingRange')) {
-            this.audioEngine.updateSource(
-                obj.audioSource,
-                obj.x,
-                obj.z,
-                obj.volume,
-                obj.pitch,
-                obj.muted,
-                obj.hearingRange,
-                this.scene.spectator.x,
-                this.scene.spectator.z,
-                this.scene.spectator.hearingRange
-            );
+            this.updateAllAudioSources();
         }
     }
 
@@ -199,6 +194,7 @@ class UIController {
         
         // Hide spectator properties by default
         document.getElementById('spectatorPropertiesSection').style.display = 'none';
+        this.updateObjectsList();
 
         if (isSpectatorSelected) {
             // Show spectator properties and hide object properties
@@ -419,17 +415,15 @@ class UIController {
             const sceneData = JSON.parse(sceneDataStr);
 
             // Create new scene
-            const newScene = new Scene();
-            newScene.spectator.fromJSON(sceneData.spectator);
+            const newScene = Scene.fromJSON(sceneData);
 
             // Load objects
             if (sceneData.objects && Array.isArray(sceneData.objects)) {
-                for (const objData of sceneData.objects) {
-                    const obj = AudioObject.fromJSON(objData);
-
+                for (let i = 0; i < sceneData.objects.length; i++) {
+                    const objData = sceneData.objects[i];
+                    const obj = newScene.getObjects()[i];
                     // Try to recreate audio source if we have buffer data
-                    if (objData.audioPath) {
-                        // For now, we can't reload from path, but we can create empty source
+                    if (obj && objData.audioPath) {
                         const emptyBuffer = this.audioEngine.audioContext.createBuffer(1, 1, 44100);
                         const sourceNode = this.audioEngine.createSource(
                             emptyBuffer,
@@ -440,17 +434,22 @@ class UIController {
                         );
                         obj.audioSource = sourceNode;
                     }
-
-                    newScene.addObject(obj);
                 }
             }
 
             // Replace scene
             window.scene = newScene;
             this.scene = newScene;
+            if (window.inputHandler) {
+                window.inputHandler.scene = newScene;
+            }
+            this.objectsListSignature = '';
 
             // Update UI
+            this.syncSceneBackgroundPreview();
             this.updateObjectsLibrary();
+            this.updateObjectsList(true);
+            this.scene.spectator.setSelected(true);
             this.updatePropertiesPanel(null);
             this.closeLoadSceneModal();
             this.showToast(`Scene loaded: ${sceneName}`);
@@ -578,9 +577,10 @@ class UIController {
             
             // Clear selection after deletion
             this.scene.setSelectedIndex(-1);
+            this.scene.spectator.setSelected(true);
             
-            this.updateObjectsLibrary();
-            this.updateObjectsList();
+            this.updateObjectsLibrary(true);
+            this.updateObjectsList(true);
             this.updatePropertiesPanel(null);
             this.showToast('Object deleted');
         }
@@ -598,11 +598,20 @@ class UIController {
     /**
      * Update the objects list in the properties panel
      */
-    updateObjectsList() {
+    updateObjectsList(force = false) {
         const container = document.getElementById('objectsListContainer');
-        container.innerHTML = '';
-
         const objects = this.scene.getObjects();
+        const signature = JSON.stringify({
+            selectedIndex: this.scene.selectedIndex,
+            objects: objects.map(obj => ({ id: obj.id, name: obj.name }))
+        });
+
+        if (!force && signature === this.objectsListSignature) {
+            return;
+        }
+
+        this.objectsListSignature = signature;
+        container.innerHTML = '';
 
         if (objects.length === 0) {
             const emptyMsg = document.createElement('div');
@@ -615,18 +624,18 @@ class UIController {
         objects.forEach((obj, index) => {
             const item = document.createElement('div');
             item.className = 'object-item' + (this.scene.selectedIndex === index ? ' selected' : '');
+            item.addEventListener('click', () => {
+                this.scene.setSelectedIndex(index);
+                this.updateObjectsList(true);
+                this.updateObjectsLibrary(true);
+                this.updatePropertiesPanel(this.scene.getSelectedObject());
+            });
             
             // Object name label
             const nameSpan = document.createElement('span');
             nameSpan.className = 'object-item-name';
             nameSpan.textContent = obj.name;
             nameSpan.style.cursor = 'pointer';
-            nameSpan.addEventListener('click', () => {
-                this.scene.setSelectedIndex(index);
-                this.updateObjectsList();
-                this.updateObjectsLibrary();
-                this.updatePropertiesPanel(obj);
-            });
             item.appendChild(nameSpan);
 
             // Action buttons container
@@ -673,17 +682,7 @@ class UIController {
 
         // Update audio source if applicable
         if (obj.audioSource) {
-            this.audioEngine.updateSource(
-                obj.audioSource,
-                obj.x,
-                obj.z,
-                obj.volume,
-                obj.pitch,
-                obj.muted,
-                obj.hearingRange,
-                this.scene.spectator.x,
-                this.scene.spectator.z
-            );
+            this.updateAllAudioSources();
         }
     }
 
@@ -693,6 +692,7 @@ class UIController {
      * @param {number} index - Object index
      */
     openEditObjectModal(obj, index) {
+        this.scene.setSelectedIndex(index);
         this.currentEditingObjectIndex = index;
 
         document.getElementById('editObjectName').textContent = obj.name;
@@ -756,6 +756,7 @@ class UIController {
                 );
                 obj.audioSource = sourceNode;
                 this.audioEngine.playSource(sourceNode);
+                this.updateAllAudioSources();
             }
 
             // Replace image file if provided
@@ -764,9 +765,11 @@ class UIController {
                 await this.loadImageFile(imageFile, obj);
             }
 
+            const editedIndex = this.currentEditingObjectIndex;
             this.closeEditObjectModal();
-            this.updateObjectsList();
-            this.updateObjectsLibrary();
+            this.scene.setSelectedIndex(editedIndex);
+            this.updateObjectsList(true);
+            this.updateObjectsLibrary(true);
             this.updatePropertiesPanel(obj);
             this.showToast('Object updated!');
         } catch (error) {
@@ -785,6 +788,7 @@ class UIController {
             const numValue = parseFloat(value);
             this.scene.spectator.hearingRange = Math.max(50, Math.min(2000, numValue));
             document.getElementById('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
+            this.updateAllAudioSources();
         }
     }
 
@@ -835,6 +839,113 @@ class UIController {
             };
 
             reader.readAsDataURL(imageFile);
+        });
+    }
+
+    /**
+     * Register scene background upload controls.
+     */
+    setupSceneBackgroundListener() {
+        const backgroundInput = document.getElementById('sceneBackgroundFile');
+        if (!backgroundInput) return;
+
+        backgroundInput.addEventListener('change', async (e) => {
+            if (e.target.files.length === 0) return;
+
+            try {
+                await this.loadSceneBackgroundImage(e.target.files[0]);
+                this.showToast('Scene background updated!');
+            } catch (error) {
+                alert('Failed to load background: ' + error.message);
+            }
+        });
+
+        this.syncSceneBackgroundPreview();
+    }
+
+    /**
+     * Load scene background from an image file.
+     * @param {File} imageFile - Background image file
+     */
+    loadSceneBackgroundImage(imageFile) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.scene.setBackgroundImage(e.target.result, imageFile.name);
+                    const preview = document.getElementById('sceneBackgroundPreview');
+                    if (preview) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    }
+                    resolve();
+                };
+                img.onerror = () => reject(new Error('Failed to load background image'));
+                img.src = e.target.result;
+            };
+
+            reader.onerror = () => reject(new Error('Failed to read background image'));
+            reader.readAsDataURL(imageFile);
+        });
+    }
+
+    /**
+     * Remove the current scene background image.
+     */
+    clearSceneBackground() {
+        this.scene.setBackgroundImage('', '');
+        const input = document.getElementById('sceneBackgroundFile');
+        const preview = document.getElementById('sceneBackgroundPreview');
+
+        if (input) input.value = '';
+        if (preview) {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
+        this.showToast('Scene background cleared');
+    }
+
+    /**
+     * Reflect the current scene background state in the preview.
+     */
+    syncSceneBackgroundPreview() {
+        const preview = document.getElementById('sceneBackgroundPreview');
+        if (!preview) return;
+
+        if (this.scene.backgroundImageSrc) {
+            preview.src = this.scene.backgroundImageSrc;
+            preview.style.display = 'block';
+        } else {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
+    }
+
+    /**
+     * Refresh gain/panner values for every active audio source.
+     */
+    updateAllAudioSources() {
+        const spectatorX = this.scene.spectator.x;
+        const spectatorZ = this.scene.spectator.z;
+        const spectatorHearingRange = this.scene.spectator.hearingRange;
+
+        this.scene.getObjects().forEach(obj => {
+            if (!obj.audioSource) return;
+
+            this.audioEngine.updateSource(
+                obj.audioSource,
+                obj.x,
+                obj.z,
+                obj.volume,
+                obj.pitch,
+                obj.muted,
+                obj.hearingRange,
+                spectatorX,
+                spectatorZ,
+                spectatorHearingRange
+            );
         });
     }
 }

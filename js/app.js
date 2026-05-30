@@ -85,6 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFileInputListeners();
     setupMenuListeners();
     AppState.uiController.setupSpectatorImageListener();
+    AppState.uiController.setupSceneBackgroundListener();
+    AppState.uiController.updateObjectsLibrary();
+    AppState.uiController.updateObjectsList(true);
     AppState.uiController.updatePropertiesPanel(null);
 
     // Set canvas size
@@ -151,7 +154,7 @@ function setupUIListeners() {
     // Close modals with Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            ['addObjectModal', 'saveSceneModal', 'loadSceneModal'].forEach(modalId => {
+            ['addObjectModal', 'saveSceneModal', 'loadSceneModal', 'editObjectModal'].forEach(modalId => {
                 document.getElementById(modalId).classList.remove('active');
             });
         }
@@ -161,7 +164,8 @@ function setupUIListeners() {
     const modals = [
         { modal: document.getElementById('addObjectModal'), overlay: 'addObjectModal' },
         { modal: document.getElementById('saveSceneModal'), overlay: 'saveSceneModal' },
-        { modal: document.getElementById('loadSceneModal'), overlay: 'loadSceneModal' }
+        { modal: document.getElementById('loadSceneModal'), overlay: 'loadSceneModal' },
+        { modal: document.getElementById('editObjectModal'), overlay: 'editObjectModal' }
     ];
 
     modals.forEach(({ modal }) => {

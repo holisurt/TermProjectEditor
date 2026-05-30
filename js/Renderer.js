@@ -82,12 +82,14 @@ class Renderer {
      * @param {number} mouseY - Current mouse Y (for hovering)
      */
     renderScene(scene, mouseX = -1, mouseY = -1) {
+        this.clampViewportToScene();
+
         // Clear canvas
         this.ctx.fillStyle = '#15151a';
         this.ctx.fillRect(0, 0, this.width, this.height);
 
-        // Draw grid background
-        this.drawGrid();
+        this.drawSceneArea(scene);
+        this.drawGrid(scene);
 
         // Draw all objects
         scene.getObjects().forEach((obj, index) => {
@@ -108,10 +110,38 @@ class Renderer {
     /**
      * Draw gridlines in the background
      */
+    drawSceneArea(scene) {
+        const topLeft = this.worldToScreen(-Scene.HALF_WIDTH, -Scene.HALF_HEIGHT);
+        const bottomRight = this.worldToScreen(Scene.HALF_WIDTH, Scene.HALF_HEIGHT);
+        const width = bottomRight.x - topLeft.x;
+        const height = bottomRight.y - topLeft.y;
+
+        this.ctx.save();
+        this.ctx.fillStyle = '#1a1a20';
+        this.ctx.fillRect(topLeft.x, topLeft.y, width, height);
+
+        if (scene.backgroundImage && scene.backgroundImage.complete) {
+            this.ctx.drawImage(scene.backgroundImage, topLeft.x, topLeft.y, width, height);
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            this.ctx.fillRect(topLeft.x, topLeft.y, width, height);
+        }
+
+        this.ctx.strokeStyle = '#777777';
+        this.ctx.lineWidth = Math.max(1, this.zoom);
+        this.ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+        this.ctx.restore();
+    }
+
     drawGrid() {
         const gridSize = 50;
         const gridColor = '#2d2d3d';
+        const topLeft = this.worldToScreen(-Scene.HALF_WIDTH, -Scene.HALF_HEIGHT);
+        const bottomRight = this.worldToScreen(Scene.HALF_WIDTH, Scene.HALF_HEIGHT);
 
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+        this.ctx.clip();
         this.ctx.strokeStyle = gridColor;
         this.ctx.lineWidth = 0.5;
 
@@ -125,18 +155,19 @@ class Renderer {
         // Draw vertical lines
         for (let x = offsetX % screenSize - screenSize; x < this.width; x += screenSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.height);
+            this.ctx.moveTo(x, topLeft.y);
+            this.ctx.lineTo(x, bottomRight.y);
             this.ctx.stroke();
         }
 
         // Draw horizontal lines
         for (let y = offsetY % screenSize - screenSize; y < this.height; y += screenSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.width, y);
+            this.ctx.moveTo(topLeft.x, y);
+            this.ctx.lineTo(bottomRight.x, y);
             this.ctx.stroke();
         }
+        this.ctx.restore();
     }
 
     /**
@@ -512,6 +543,7 @@ class Renderer {
     setViewport(worldX, worldZ) {
         this.worldX = worldX;
         this.worldZ = worldZ;
+        this.clampViewportToScene();
     }
 
     /**
@@ -520,5 +552,14 @@ class Renderer {
      */
     setZoom(zoom) {
         this.zoom = Math.max(0.1, Math.min(5.0, zoom));
+        this.clampViewportToScene();
+    }
+
+    /**
+     * Keep the viewport center inside the fixed scene bounds.
+     */
+    clampViewportToScene() {
+        this.worldX = Math.max(-Scene.HALF_WIDTH, Math.min(Scene.HALF_WIDTH, this.worldX));
+        this.worldZ = Math.max(-Scene.HALF_HEIGHT, Math.min(Scene.HALF_HEIGHT, this.worldZ));
     }
 }

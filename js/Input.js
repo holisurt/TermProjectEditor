@@ -137,8 +137,9 @@ class InputHandler {
      */
     handleObjectDrag(deltaX, deltaZ) {
         const obj = this.scene.getObjects()[this.draggedIndex];
-        obj.x += deltaX;
-        obj.z += deltaZ;
+        const nextPos = this.scene.clampPosition(obj.x + deltaX, obj.z + deltaZ);
+        obj.x = nextPos.x;
+        obj.z = nextPos.z;
 
         // Update audio source position
         if (obj.audioSource) {
@@ -147,7 +148,12 @@ class InputHandler {
                 obj.x,
                 obj.z,
                 obj.volume,
-                obj.pitch
+                obj.pitch,
+                obj.muted,
+                obj.hearingRange,
+                this.scene.spectator.x,
+                this.scene.spectator.z,
+                this.scene.spectator.hearingRange
             );
         }
         
@@ -160,13 +166,11 @@ class InputHandler {
      * @param {number} deltaZ - Z delta in world space
      */
     handleSpectatorDrag(deltaX, deltaZ) {
-        const moveAmount = 2.0 * Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
-        
-        if (Math.abs(deltaX) > Math.abs(deltaZ)) {
-            this.scene.spectator.x += deltaX > 0 ? moveAmount : -moveAmount;
-        } else {
-            this.scene.spectator.z += deltaZ > 0 ? moveAmount : -moveAmount;
-        }
+        const nextPos = this.scene.clampPosition(
+            this.scene.spectator.x + deltaX,
+            this.scene.spectator.z + deltaZ
+        );
+        this.scene.spectator.setPosition(nextPos.x, nextPos.z);
         
         this.renderer.canvas.style.cursor = 'default';
     }

@@ -50,10 +50,10 @@ class AudioEngine {
 
         // Create panner for spatial audio
         const panner = this.audioContext.createPanner();
-        panner.distanceModel = 'inverse'; // Inverse distance attenuation (like OpenAL)
+        panner.distanceModel = 'inverse';
         panner.refDistance = 1.0;
-        panner.maxDistance = 100.0;
-        panner.rolloffFactor = 1.0;
+        panner.maxDistance = 100000.0;
+        panner.rolloffFactor = 0.0;
         panner.positionX.value = x;
         panner.positionY.value = 0;
         panner.positionZ.value = z;
@@ -95,22 +95,16 @@ class AudioEngine {
         const dz = z - listenerZ;
         const distance = Math.sqrt(dx * dx + dz * dz);
 
-        // Apply muting and hearing range with distance attenuation
+        // Apply muting and hearing range with distance attenuation.
+        // The PannerNode is used for spatial placement only; gainNode owns volume.
         let finalVolume = 0;
-        
-        if (!muted) {
-            // Check if sound is within spectator's hearing range
-            if (distance <= spectatorHearingRange) {
-                // Also check object's hearing range
-                if (distance <= hearingRange) {
-                    // Calculate distance factor (1.0 at distance 0, 0.0 at max hearing range)
-                    const distanceFactor = 1.0 - (distance / hearingRange);
-                    // Apply volume with distance attenuation
-                    finalVolume = volume * Math.max(0, distanceFactor);
-                }
-            }
+
+        if (!muted && distance <= hearingRange && distance <= spectatorHearingRange) {
+            const objectFactor = 1.0 - (distance / Math.max(1, hearingRange));
+            const listenerFactor = 1.0 - (distance / Math.max(1, spectatorHearingRange));
+            finalVolume = volume * Math.max(0, objectFactor) * Math.max(0, listenerFactor);
         }
-        
+
         // Clamp to valid gain range (0.0 to 2.0 - Web Audio API supports this)
         sourceNode.gainNode.gain.value = Math.max(0, Math.min(2, finalVolume));
     }

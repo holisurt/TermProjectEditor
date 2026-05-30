@@ -653,6 +653,21 @@
         <div class="left-panel" id="leftPanel">
             <div class="panel-header">Properties</div>
             <div class="panel-content">
+                <div class="properties-section">
+                    <div class="section-title">Scene</div>
+                    <div class="section-content">
+                        <div class="form-group">
+                            <label class="form-label">Background Image</label>
+                            <input type="file" id="sceneBackgroundFile" accept=".png,.jpg,.jpeg,.gif,.bmp">
+                            <div style="margin-top: 8px; padding: 8px; background-color: #1a1a20; border-radius: 4px; text-align: center;">
+                                <img id="sceneBackgroundPreview" style="display: none; width: 100%; max-height: 90px; object-fit: cover; border-radius: 4px;">
+                            </div>
+                        </div>
+                        <button class="button small" type="button" onclick="window.uiController && window.uiController.clearSceneBackground()">Clear Background</button>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Scene size: 3000 x 2000px</div>
+                    </div>
+                </div>
+
                 <!-- Spectator Properties section (hidden by default) -->
                 <div class="properties-section" id="spectatorPropertiesSection" style="display: none;">
                     <div class="section-title">Spectator Properties</div>
