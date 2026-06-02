@@ -9,6 +9,9 @@ class AudioObject {
     static DEFAULT_VOLUME = 1.0;
     static DEFAULT_PITCH = 1.0;
     static DEFAULT_HEARING_RANGE = 500;
+    static DEFAULT_BASS = 0.0;
+    static DEFAULT_TREBLE = 0.0;
+    static DEFAULT_ECHO = 0.0;
     static DEFAULT_WIDTH = 40;
     static DEFAULT_HEIGHT = 40;
 
@@ -19,6 +22,10 @@ class AudioObject {
     static PITCH_MAX = 2.0;
     static HEARING_RANGE_MIN = 50;
     static HEARING_RANGE_MAX = 1000;
+    static TONE_GAIN_MIN = -12.0;
+    static TONE_GAIN_MAX = 12.0;
+    static ECHO_MIN = 0.0;
+    static ECHO_MAX = 1.0;
 
     // Image filter ranges
     static BRIGHTNESS_MIN = -1.0;
@@ -52,6 +59,9 @@ class AudioObject {
         this.pitch = AudioObject.DEFAULT_PITCH;
         this.muted = false;
         this.hearingRange = AudioObject.DEFAULT_HEARING_RANGE;
+        this.bass = AudioObject.DEFAULT_BASS;
+        this.treble = AudioObject.DEFAULT_TREBLE;
+        this.echo = AudioObject.DEFAULT_ECHO;
         
         // Image filter properties
         this.brightness = 0.0;
@@ -170,6 +180,9 @@ class AudioObject {
             pitch: this.pitch,
             muted: this.muted,
             hearingRange: this.hearingRange,
+            bass: this.bass,
+            treble: this.treble,
+            echo: this.echo,
             brightness: this.brightness,
             saturation: this.saturation,
             hue: this.hue,
@@ -197,6 +210,9 @@ class AudioObject {
         obj.pitch = json.pitch ?? AudioObject.DEFAULT_PITCH;
         obj.muted = json.muted ?? false;
         obj.hearingRange = json.hearingRange ?? AudioObject.DEFAULT_HEARING_RANGE;
+        obj.bass = json.bass ?? AudioObject.DEFAULT_BASS;
+        obj.treble = json.treble ?? AudioObject.DEFAULT_TREBLE;
+        obj.echo = json.echo ?? AudioObject.DEFAULT_ECHO;
         obj.brightness = json.brightness ?? 0.0;
         obj.saturation = json.saturation ?? 1.0;
         obj.hue = json.hue ?? 0.0;

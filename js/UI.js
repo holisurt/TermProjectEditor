@@ -47,7 +47,7 @@ class UIController {
 
     getObjectControlIds() {
         return [
-            'volumeSlider', 'pitchSlider', 'hearingRangeSlider',
+            'volumeSlider', 'pitchSlider', 'bassSlider', 'trebleSlider', 'echoSlider', 'hearingRangeSlider',
             'brightnessSlider', 'saturationSlider', 'hueSlider',
             'grayscaleSlider', 'blurSlider'
         ];
@@ -87,6 +87,9 @@ class UIController {
             name: obj.name,
             volume: obj.volume,
             pitch: obj.pitch,
+            bass: obj.bass,
+            treble: obj.treble,
+            echo: obj.echo,
             muted: obj.muted,
             hearingRange: obj.hearingRange,
             brightness: obj.brightness,
@@ -211,7 +214,7 @@ class UIController {
     }
 
     createAndPlaySource(obj, audioBuffer) {
-        const sourceNode = this.audioEngine.createSource(audioBuffer, obj.x, obj.z, obj.volume, obj.pitch);
+        const sourceNode = this.audioEngine.createSource(audioBuffer, obj.x, obj.z, obj.volume, obj.pitch, obj.bass, obj.treble, obj.echo);
         obj.audioBuffer = audioBuffer;
         obj.audioSource = sourceNode;
         this.audioEngine.playSource(sourceNode);
@@ -253,6 +256,9 @@ class UIController {
         const rangeConfig = {
             volume: [0, 2, 'volumeValue', v => v.toFixed(2), true],
             pitch: [0.5, 2, 'pitchValue', v => v.toFixed(2), true],
+            bass: [-12, 12, 'bassValue', v => `${v.toFixed(1)} dB`, true],
+            treble: [-12, 12, 'trebleValue', v => `${v.toFixed(1)} dB`, true],
+            echo: [0, 1, 'echoValue', v => `${Math.round(v * 100)}%`, true],
             hearingRange: [50, 1000, 'hearingRangeValue', v => `${v}px`, true],
             brightness: [-1, 1],
             saturation: [0, 2],
@@ -307,6 +313,9 @@ class UIController {
         this.el('muteCheckbox').checked = obj.muted;
         this.setSliderControl('volumeSlider', 'volumeValue', obj.volume);
         this.setSliderControl('pitchSlider', 'pitchValue', obj.pitch);
+        this.setSliderControl('bassSlider', 'bassValue', obj.bass, v => `${Number(v).toFixed(1)} dB`);
+        this.setSliderControl('trebleSlider', 'trebleValue', obj.treble, v => `${Number(v).toFixed(1)} dB`);
+        this.setSliderControl('echoSlider', 'echoValue', obj.echo, v => `${Math.round(Number(v) * 100)}%`);
         this.setSliderControl('hearingRangeSlider', 'hearingRangeValue', obj.hearingRange, v => `${v}px`);
 
         this.setSliderControl('brightnessSlider', 'brightnessValue', obj.brightness);
@@ -878,7 +887,10 @@ class UIController {
                 obj.hearingRange,
                 spectatorX,
                 spectatorZ,
-                spectatorHearingRange
+                spectatorHearingRange,
+                obj.bass,
+                obj.treble,
+                obj.echo
             );
         });
     }

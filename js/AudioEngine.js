@@ -37,7 +37,7 @@ class AudioEngine {
      * @param {number} pitch - Playback rate (0.5 - 2.0)
      * @returns {Object} Source object with { source, panner, gainNode, buffer }
      */
-    createSource(audioBuffer, x = 0, z = 0, volume = 1.0, pitch = 1.0) {
+    createSource(audioBuffer, x = 0, z = 0, volume = 1.0, pitch = 1.0, bass = 0.0, treble = 0.0, echo = 0.0) {
         // Create buffer source
         const bufferSource = this.audioContext.createBufferSource();
         bufferSource.buffer = audioBuffer;
@@ -47,6 +47,21 @@ class AudioEngine {
         // Create gain node for volume control
         const gainNode = this.audioContext.createGain();
         gainNode.gain.value = volume;
+
+        const bassFilter = this.audioContext.createBiquadFilter();
+        bassFilter.type = 'lowshelf';
+        bassFilter.frequency.value = 320;
+        bassFilter.gain.value = bass;
+
+        const trebleFilter = this.audioContext.createBiquadFilter();
+        trebleFilter.type = 'highshelf';
+        trebleFilter.frequency.value = 3200;
+        trebleFilter.gain.value = treble;
+
+        const delayNode = this.audioContext.createDelay(1.0);
+        delayNode.delayTime.value = 0.25;
+        const echoGain = this.audioContext.createGain();
+        echoGain.gain.value = echo;
 
         // Create panner for spatial audio
         const panner = this.audioContext.createPanner();
@@ -60,12 +75,20 @@ class AudioEngine {
 
         // Connect audio graph: source → gain → panner → destination
         bufferSource.connect(gainNode);
-        gainNode.connect(panner);
+        gainNode.connect(bassFilter);
+        bassFilter.connect(trebleFilter);
+        trebleFilter.connect(panner);
+        trebleFilter.connect(delayNode);
+        delayNode.connect(echoGain);
+        echoGain.connect(panner);
         panner.connect(this.audioContext.destination);
 
         return {
             source: bufferSource,
             gainNode: gainNode,
+            bassFilter: bassFilter,
+            trebleFilter: trebleFilter,
+            echoGain: echoGain,
             panner: panner,
             buffer: audioBuffer,
             isPlaying: false
@@ -85,10 +108,13 @@ class AudioEngine {
      * @param {number} listenerZ - Listener Z position for distance calculation
      * @param {number} spectatorHearingRange - Spectator's max hearing range (default 500)
      */
-    updateSource(sourceNode, x, z, volume, pitch, muted = false, hearingRange = 500, listenerX = 0, listenerZ = 0, spectatorHearingRange = 500) {
+    updateSource(sourceNode, x, z, volume, pitch, muted = false, hearingRange = 500, listenerX = 0, listenerZ = 0, spectatorHearingRange = 500, bass = 0.0, treble = 0.0, echo = 0.0) {
         sourceNode.panner.positionX.value = x;
         sourceNode.panner.positionZ.value = z;
         sourceNode.source.playbackRate.value = pitch;
+        if (sourceNode.bassFilter) sourceNode.bassFilter.gain.value = bass;
+        if (sourceNode.trebleFilter) sourceNode.trebleFilter.gain.value = treble;
+        if (sourceNode.echoGain) sourceNode.echoGain.gain.value = clamp(echo, 0, 1);
 
         // Calculate distance from listener to sound source
         const sourceDistance = distance(listenerX, listenerZ, x, z);

@@ -216,7 +216,10 @@ function updateAudioSources() {
                 obj.hearingRange || 500,
                 spectatorX,
                 spectatorZ,
-                spectatorHearingRange
+                spectatorHearingRange,
+                obj.bass || 0,
+                obj.treble || 0,
+                obj.echo || 0
             );
         }
     });

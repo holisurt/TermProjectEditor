@@ -152,7 +152,10 @@ class InputHandler {
                 obj.hearingRange,
                 this.scene.spectator.x,
                 this.scene.spectator.z,
-                this.scene.spectator.hearingRange
+                this.scene.spectator.hearingRange,
+                obj.bass,
+                obj.treble,
+                obj.echo
             );
         }
         
