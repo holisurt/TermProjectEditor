@@ -137,6 +137,7 @@ class AudioEngine {
      */
     playSource(sourceNode) {
         if (!sourceNode.isPlaying) {
+            this.resume();
             sourceNode.source.start();
             sourceNode.isPlaying = true;
             this.activeSources.push(sourceNode);
@@ -172,7 +173,8 @@ class AudioEngine {
      */
     resume() {
         if (this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
+            return this.audioContext.resume();
         }
+        return Promise.resolve();
     }
 }

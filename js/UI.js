@@ -48,6 +48,8 @@ class UIController {
      * Handle Add Object confirmation
      */
     async onAddObjectConfirm() {
+        await this.audioEngine.resume();
+
         const nameInput = document.getElementById('modalObjectName');
         const audioFileInput = document.getElementById('modalAudioFile');
         const imageFileInput = document.getElementById('modalImageFile');
@@ -71,6 +73,7 @@ class UIController {
                 
                 newObj.audioBuffer = audioBuffer;
                 newObj.audioPath = audioFile.name;
+                newObj.audioDataUrl = await this.fileToDataUrl(audioFile);
 
                 // Create and play audio source
                 const sourceNode = this.audioEngine.createSource(
@@ -121,6 +124,7 @@ class UIController {
                 img.onload = () => {
                     obj.image = img;
                     obj.imagePath = imageFile.name;
+                    obj.imageDataUrl = e.target.result;
                     // Preserve aspect ratio: set height based on width to maintain proportion
                     const baseSize = 40;
                     obj.width = baseSize;
@@ -139,6 +143,53 @@ class UIController {
             };
 
             reader.readAsDataURL(imageFile);
+        });
+    }
+
+    /**
+     * Convert a file to a data URL so saved scenes can restore local files.
+     * @param {File} file - File to encode
+     * @returns {Promise<string>} Data URL
+     */
+    fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /**
+     * Decode an audio data URL into an AudioBuffer.
+     * @param {string} dataUrl - Audio data URL
+     * @returns {Promise<AudioBuffer>} Decoded audio buffer
+     */
+    async decodeAudioDataUrl(dataUrl) {
+        const response = await fetch(dataUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        return this.audioEngine.decodeAudio(arrayBuffer);
+    }
+
+    /**
+     * Restore an object's image from a saved data URL.
+     * @param {AudioObject} obj - Object to update
+     * @param {string} dataUrl - Image data URL
+     * @returns {Promise<void>}
+     */
+    loadObjectImageDataUrl(obj, dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                obj.image = img;
+                obj.imageDataUrl = dataUrl;
+                obj.aspectRatio = img.width / img.height;
+                if (!obj.width) obj.width = 40;
+                obj.height = obj.width / obj.aspectRatio;
+                resolve();
+            };
+            img.onerror = () => reject(new Error('Failed to restore object image'));
+            img.src = dataUrl;
         });
     }
 
@@ -401,6 +452,8 @@ class UIController {
      * Handle Load Scene confirmation
      */
     async onLoadSceneConfirm() {
+        await this.audioEngine.resume();
+
         const sceneSelect = document.getElementById('sceneSelect');
         const sceneName = sceneSelect.value;
 
@@ -422,20 +475,33 @@ class UIController {
                 for (let i = 0; i < sceneData.objects.length; i++) {
                     const objData = sceneData.objects[i];
                     const obj = newScene.getObjects()[i];
-                    // Try to recreate audio source if we have buffer data
-                    if (obj && objData.audioPath) {
-                        const emptyBuffer = this.audioEngine.audioContext.createBuffer(1, 1, 44100);
+                    if (!obj) continue;
+
+                    if (objData.imageDataUrl) {
+                        await this.loadObjectImageDataUrl(obj, objData.imageDataUrl);
+                    }
+
+                    if (objData.audioDataUrl) {
+                        const audioBuffer = await this.decodeAudioDataUrl(objData.audioDataUrl);
                         const sourceNode = this.audioEngine.createSource(
-                            emptyBuffer,
+                            audioBuffer,
                             obj.x,
                             obj.z,
                             obj.volume,
                             obj.pitch
                         );
+                        obj.audioBuffer = audioBuffer;
                         obj.audioSource = sourceNode;
+                        this.audioEngine.playSource(sourceNode);
                     }
                 }
             }
+
+            this.scene.getObjects().forEach(obj => {
+                if (obj.audioSource) {
+                    this.audioEngine.stopSource(obj.audioSource);
+                }
+            });
 
             // Replace scene
             window.scene = newScene;
@@ -451,6 +517,7 @@ class UIController {
             this.updateObjectsList(true);
             this.scene.spectator.setSelected(true);
             this.updatePropertiesPanel(null);
+            this.updateAllAudioSources();
             this.closeLoadSceneModal();
             this.showToast(`Scene loaded: ${sceneName}`);
         } catch (error) {
@@ -716,6 +783,8 @@ class UIController {
      * Handle Edit Object confirmation
      */
     async onEditObjectConfirm() {
+        await this.audioEngine.resume();
+
         if (this.currentEditingObjectIndex < 0 || this.currentEditingObjectIndex >= this.scene.getObjects().length) {
             alert('Invalid object selection');
             return;
@@ -746,6 +815,7 @@ class UIController {
 
                 obj.audioBuffer = audioBuffer;
                 obj.audioPath = audioFile.name;
+                obj.audioDataUrl = await this.fileToDataUrl(audioFile);
 
                 // Create new source and play
                 const sourceNode = this.audioEngine.createSource(

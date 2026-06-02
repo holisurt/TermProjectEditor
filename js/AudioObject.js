@@ -44,6 +44,8 @@ class AudioObject {
         // File paths
         this.audioPath = '';
         this.imagePath = '';
+        this.audioDataUrl = '';
+        this.imageDataUrl = '';
 
         // Audio properties
         this.volume = AudioObject.DEFAULT_VOLUME;
@@ -162,6 +164,8 @@ class AudioObject {
             name: this.name,
             audioPath: this.audioPath,
             imagePath: this.imagePath,
+            audioDataUrl: this.audioDataUrl,
+            imageDataUrl: this.imageDataUrl,
             x: this.x,
             z: this.z,
             volume: this.volume,
@@ -189,6 +193,8 @@ class AudioObject {
         obj.id = json.id || obj.id;
         obj.audioPath = json.audioPath || '';
         obj.imagePath = json.imagePath || '';
+        obj.audioDataUrl = json.audioDataUrl || '';
+        obj.imageDataUrl = json.imageDataUrl || '';
         obj.volume = json.volume ?? AudioObject.DEFAULT_VOLUME;
         obj.pitch = json.pitch ?? AudioObject.DEFAULT_PITCH;
         obj.muted = json.muted ?? false;
