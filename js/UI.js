@@ -13,6 +13,8 @@ class UIController {
         this.currentEditingObjectIndex = -1;
         this.objectsListSignature = '';
         this.propertiesPanelSignature = '';
+        this.sceneDirectoryHandle = null;
+        this.sceneFileHandles = new Map();
 
         // Toast notification
         this.toastTimeout = null;
@@ -43,6 +45,38 @@ class UIController {
         emptyMsg.style.cssText = `padding: ${padding}px; color: #a0a0a0; text-align: center; font-size: 12px;`;
         emptyMsg.textContent = text;
         return emptyMsg;
+    }
+
+    supportsSceneFolderAccess() {
+        return 'showDirectoryPicker' in window;
+    }
+
+    async ensureSceneDirectory(mode = 'read') {
+        if (!this.supportsSceneFolderAccess()) {
+            throw new Error('Your browser does not support folder-based scene storage. Use Chrome or Edge.');
+        }
+
+        if (!this.sceneDirectoryHandle) {
+            this.sceneDirectoryHandle = await window.showDirectoryPicker({
+                id: 'term-project-scenes',
+                mode
+            });
+        }
+
+        const options = { mode };
+        const permission = await this.sceneDirectoryHandle.queryPermission(options);
+        if (permission !== 'granted') {
+            const requested = await this.sceneDirectoryHandle.requestPermission(options);
+            if (requested !== 'granted') {
+                throw new Error('Scene folder permission was not granted.');
+            }
+        }
+
+        return this.sceneDirectoryHandle;
+    }
+
+    sanitizeSceneFilename(filename) {
+        return filename.replace(/[\\/:*?"<>|]+/g, '_').replace(/\.scene\.json$/i, '').trim();
     }
 
     getObjectControlIds() {
@@ -357,9 +391,9 @@ class UIController {
     /**
      * Handle Save Scene confirmation
      */
-    onSaveSceneConfirm() {
+    async onSaveSceneConfirm() {
         const filenameInput = this.el('sceneFilename');
-        const filename = filenameInput.value.trim();
+        const filename = this.sanitizeSceneFilename(filenameInput.value);
 
         if (!filename) {
             alert('Please enter a filename');
@@ -368,23 +402,12 @@ class UIController {
 
         try {
             const sceneData = this.scene.toJSON();
-            const key = `scene_${filename}`;
-
-            localStorage.setItem(key, JSON.stringify(sceneData));
-
-            // Optional: Auto-download
-            const blob = new Blob([JSON.stringify(sceneData, null, 2)], {
-                type: 'application/json'
-            });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${filename}.scene.json`;
-            
-            // Only auto-download if user wants (commented out for safety)
-            // a.click();
-            
-            URL.revokeObjectURL(url);
+            const directoryHandle = await this.ensureSceneDirectory('readwrite');
+            const fileHandle = await directoryHandle.getFileHandle(`${filename}.scene.json`, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(JSON.stringify(sceneData, null, 2));
+            await writable.close();
+            this.sceneFileHandles.set(filename, fileHandle);
 
             this.closeSaveSceneModal();
             this.showToast(`Scene saved: ${filename}`);
@@ -397,23 +420,33 @@ class UIController {
     /**
      * Open Load Scene modal
      */
-    openLoadSceneModal() {
+    async openLoadSceneModal() {
         const sceneSelect = this.el('sceneSelect');
         sceneSelect.innerHTML = '';
+        this.sceneFileHandles.clear();
 
-        // Get all saved scenes from localStorage
-        const keys = Object.keys(localStorage).filter(k => k.startsWith('scene_'));
+        try {
+            const directoryHandle = await this.ensureSceneDirectory('read');
 
-        if (keys.length === 0) {
-            sceneSelect.appendChild(new Option('-- No saved scenes --', ''));
-        } else {
-            keys.forEach(key => {
-                const sceneName = key.substring(6); // Remove 'scene_' prefix
+            for await (const [fileName, handle] of directoryHandle.entries()) {
+                if (handle.kind !== 'file' || !fileName.endsWith('.scene.json')) continue;
+
+                const sceneName = fileName.replace(/\.scene\.json$/i, '');
+                this.sceneFileHandles.set(sceneName, handle);
                 sceneSelect.appendChild(new Option(sceneName, sceneName));
-            });
-        }
+            }
 
-        this.setModal('loadSceneModal', true);
+            if (this.sceneFileHandles.size === 0) {
+                sceneSelect.appendChild(new Option('-- No saved scenes --', ''));
+            }
+
+            this.setModal('loadSceneModal', true);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('Error opening scene folder:', error);
+                alert('Failed to open scene folder: ' + error.message);
+            }
+        }
     }
 
     /**
@@ -438,9 +471,14 @@ class UIController {
         }
 
         try {
-            const key = `scene_${sceneName}`;
-            const sceneDataStr = localStorage.getItem(key);
-            const sceneData = JSON.parse(sceneDataStr);
+            const fileHandle = this.sceneFileHandles.get(sceneName);
+            if (!fileHandle) {
+                alert('Scene file not found in selected folder');
+                return;
+            }
+
+            const sceneFile = await fileHandle.getFile();
+            const sceneData = JSON.parse(await sceneFile.text());
 
             // Create new scene
             const newScene = Scene.fromJSON(sceneData);
