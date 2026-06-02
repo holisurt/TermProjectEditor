@@ -516,6 +516,7 @@ class UIController {
         if (obj) {
             obj.name = newName;
             this.updateObjectsLibrary();
+            this.updateObjectsList(true);
         }
     }
 
