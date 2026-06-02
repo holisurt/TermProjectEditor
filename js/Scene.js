@@ -59,10 +59,7 @@ class Scene {
      * @returns {AudioObject|null} Selected object or null
      */
     getSelectedObject() {
-        if (this.selectedIndex >= 0 && this.selectedIndex < this.objects.length) {
-            return this.objects[this.selectedIndex];
-        }
-        return null;
+        return this.objects[this.selectedIndex] || null;
     }
 
     /**
@@ -112,10 +109,7 @@ class Scene {
     pickObject(x, z, threshold = 30) {
         for (let i = this.objects.length - 1; i >= 0; i--) {
             const obj = this.objects[i];
-            const dx = obj.x - x;
-            const dz = obj.z - z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist <= threshold) {
+            if (distance(obj.x, obj.z, x, z) <= threshold) {
                 return obj;
             }
         }
@@ -209,8 +203,8 @@ class Scene {
      */
     clampPosition(x, z) {
         return {
-            x: Math.max(-Scene.HALF_WIDTH, Math.min(Scene.HALF_WIDTH, x)),
-            z: Math.max(-Scene.HALF_HEIGHT, Math.min(Scene.HALF_HEIGHT, z))
+            x: clamp(x, -Scene.HALF_WIDTH, Scene.HALF_WIDTH),
+            z: clamp(z, -Scene.HALF_HEIGHT, Scene.HALF_HEIGHT)
         };
     }
 

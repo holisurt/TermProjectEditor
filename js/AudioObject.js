@@ -101,9 +101,7 @@ class AudioObject {
      * @returns {number} Distance
      */
     distanceTo(x, z) {
-        const dx = this.x - x;
-        const dz = this.z - z;
-        return Math.sqrt(dx * dx + dz * dz);
+        return distance(this.x, this.z, x, z);
     }
 
     /**
@@ -112,8 +110,8 @@ class AudioObject {
      * @param {number} pitch - 0.5 - 2.0
      */
     setAudioProperties(volume, pitch) {
-        this.volume = Math.max(0, Math.min(1, volume));
-        this.pitch = Math.max(0.5, Math.min(2.0, pitch));
+        this.volume = clamp(volume, 0, 1);
+        this.pitch = clamp(pitch, 0.5, 2.0);
     }
 
     /**

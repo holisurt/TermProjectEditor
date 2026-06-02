@@ -99,8 +99,7 @@ class InputHandler {
     handleEmptySpacePicked() {
         this.scene.setSelectedIndex(-1);
         this.scene.spectator.setSelected(false);
-        this.draggedIndex = -1;
-        this.draggedSpectator = false;
+        this.resetDragState();
         this.isPanning = true;
         this.renderer.canvas.style.cursor = 'grabbing';
     }
@@ -208,9 +207,7 @@ class InputHandler {
      * @param {MouseEvent} e - Mouse event
      */
     onMouseUp(e) {
-        this.draggedIndex = -1;
-        this.draggedSpectator = false;
-        this.isPanning = false;
+        this.resetDragState();
         this.renderer.canvas.style.cursor = 'default';
     }
 
@@ -244,7 +241,7 @@ class InputHandler {
         const oldZoom = this.renderer.zoom;
 
         // Clamp zoom level
-        this.renderer.zoom = Math.max(0.2, Math.min(5.0, this.renderer.zoom + delta));
+        this.renderer.zoom = clamp(this.renderer.zoom + delta, 0.2, 5.0);
 
         // Get mouse position in screen space
         const screenPos = this.getMouseScreenPos(e);

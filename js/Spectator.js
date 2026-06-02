@@ -34,18 +34,19 @@ class Spectator {
         if (!this.selected) return;
 
         const movement = this.speed * deltaTime;
+        const isDown = key => keyStates[key] || keyStates[key.toUpperCase()];
 
         // WASD movement
-        if (keyStates['w'] || keyStates['W']) {
+        if (isDown('w')) {
             this.z -= movement; // Move forward (negative Z)
         }
-        if (keyStates['s'] || keyStates['S']) {
+        if (isDown('s')) {
             this.z += movement; // Move backward (positive Z)
         }
-        if (keyStates['a'] || keyStates['A']) {
+        if (isDown('a')) {
             this.x -= movement; // Move left (negative X)
         }
-        if (keyStates['d'] || keyStates['D']) {
+        if (isDown('d')) {
             this.x += movement; // Move right (positive X)
         }
     }

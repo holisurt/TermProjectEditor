@@ -91,8 +91,8 @@ class Renderer {
         this.drawSceneArea(scene);
         this.drawGrid(scene);
 
-        // Draw all objects
-        scene.getObjects().forEach((obj, index) => {
+        const objects = scene.getObjects();
+        objects.forEach((obj, index) => {
             const isSelected = scene.selectedIndex === index;
             this.renderObject(obj, isSelected);
         });
@@ -133,8 +133,7 @@ class Renderer {
     }
 
     drawGrid() {
-        const gridSize = 50;
-        const gridColor = '#2d2d3d';
+        const gridSize = Renderer.GRID_SIZE;
         const topLeft = this.worldToScreen(-Scene.HALF_WIDTH, -Scene.HALF_HEIGHT);
         const bottomRight = this.worldToScreen(Scene.HALF_WIDTH, Scene.HALF_HEIGHT);
 
@@ -142,7 +141,7 @@ class Renderer {
         this.ctx.beginPath();
         this.ctx.rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
         this.ctx.clip();
-        this.ctx.strokeStyle = gridColor;
+        this.ctx.strokeStyle = Renderer.GRID_COLOR;
         this.ctx.lineWidth = 0.5;
 
         // Convert grid to screen space
@@ -176,7 +175,7 @@ class Renderer {
      */
     renderSpectator(spectator) {
         const screenPos = this.worldToScreen(spectator.x, spectator.z);
-        const spectatorRadius = 15 * this.zoom;
+        const spectatorRadius = Renderer.SPECTATOR_RADIUS * this.zoom;
 
         // Draw hearing range circle based on spectator's hearing range
         const hearingRangeRadius = spectator.hearingRange * this.zoom;
@@ -213,15 +212,15 @@ class Renderer {
 
         // Draw selection highlight if selected
         if (spectator.selected) {
-            this.ctx.strokeStyle = '#ffff00';
-            this.ctx.lineWidth = 3 * this.zoom;
+            this.ctx.strokeStyle = Renderer.SELECTED_COLOR;
+            this.ctx.lineWidth = Renderer.SELECTION_BORDER_WIDTH * this.zoom;
             this.ctx.beginPath();
             this.ctx.arc(screenPos.x, screenPos.y, spectatorRadius + 8 * this.zoom, 0, Math.PI * 2);
             this.ctx.stroke();
 
             // Draw direction indicator (forward arrow)
             const arrowLen = 20 * this.zoom;
-            this.ctx.strokeStyle = '#ffff00';
+            this.ctx.strokeStyle = Renderer.SELECTED_COLOR;
             this.ctx.lineWidth = 2 * this.zoom;
             this.ctx.beginPath();
             this.ctx.moveTo(screenPos.x, screenPos.y);
@@ -229,8 +228,8 @@ class Renderer {
             this.ctx.stroke();
         } else {
             // Draw subtle border when not selected
-            this.ctx.strokeStyle = '#888888';
-            this.ctx.lineWidth = 1 * this.zoom;
+            this.ctx.strokeStyle = Renderer.DEFAULT_BORDER_COLOR;
+            this.ctx.lineWidth = Renderer.DEFAULT_BORDER_WIDTH * this.zoom;
             this.ctx.beginPath();
             this.ctx.arc(screenPos.x, screenPos.y, spectatorRadius, 0, Math.PI * 2);
             this.ctx.stroke();
@@ -241,7 +240,7 @@ class Renderer {
         this.ctx.font = `${12 * this.zoom}px sans-serif`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'top';
-        this.ctx.fillText('LISTENER', screenPos.x, screenPos.y + spectatorRadius + 8 * this.zoom);
+        this.ctx.fillText(Renderer.SPECTATOR_LABEL, screenPos.x, screenPos.y + spectatorRadius + 8 * this.zoom);
     }
 
     /**
@@ -287,8 +286,8 @@ class Renderer {
 
         // Draw selection highlight
         if (isSelected) {
-            this.ctx.strokeStyle = '#ffff00';
-            this.ctx.lineWidth = 3 * this.zoom;
+            this.ctx.strokeStyle = Renderer.SELECTED_COLOR;
+            this.ctx.lineWidth = Renderer.SELECTION_BORDER_WIDTH * this.zoom;
             this.ctx.strokeRect(
                 screenPos.x - screenWidth / 2,
                 screenPos.y - screenHeight / 2,
@@ -297,8 +296,8 @@ class Renderer {
             );
         } else {
             // Subtle border
-            this.ctx.strokeStyle = '#888888';
-            this.ctx.lineWidth = 1 * this.zoom;
+            this.ctx.strokeStyle = Renderer.DEFAULT_BORDER_COLOR;
+            this.ctx.lineWidth = Renderer.DEFAULT_BORDER_WIDTH * this.zoom;
             this.ctx.strokeRect(
                 screenPos.x - screenWidth / 2,
                 screenPos.y - screenHeight / 2,
@@ -333,7 +332,7 @@ class Renderer {
         this.ctx.fillText(
             obj.name,
             screenPos.x,
-            screenPos.y + screenHeight / 2 + 6 * this.zoom
+            screenPos.y + screenHeight / 2 + Renderer.OBJECT_LABEL_OFFSET * this.zoom
         );
     }
 
@@ -411,8 +410,6 @@ class Renderer {
      * @param {number} mouseY - Screen Y
      */
     updateHoveredObject(scene, mouseX, mouseY) {
-        const worldPos = this.screenToWorld(mouseX, mouseY);
-
         this.hoveredObjectId = null;
 
         // Check each object for hover
@@ -490,8 +487,9 @@ class Renderer {
      */
     pickObject(screenX, screenY, scene) {
         // Check in reverse order (top to bottom)
-        for (let i = scene.getObjects().length - 1; i >= 0; i--) {
-            const obj = scene.getObjects()[i];
+        const objects = scene.getObjects();
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
             const screenPos = this.worldToScreen(obj.x, obj.z);
             const screenWidth = obj.width * this.zoom;
             const screenHeight = obj.height * this.zoom;
@@ -551,7 +549,7 @@ class Renderer {
      * @param {number} zoom - Zoom factor (1.0 = normal)
      */
     setZoom(zoom) {
-        this.zoom = Math.max(0.1, Math.min(5.0, zoom));
+        this.zoom = clamp(zoom, 0.1, 5.0);
         this.clampViewportToScene();
     }
 
@@ -559,7 +557,7 @@ class Renderer {
      * Keep the viewport center inside the fixed scene bounds.
      */
     clampViewportToScene() {
-        this.worldX = Math.max(-Scene.HALF_WIDTH, Math.min(Scene.HALF_WIDTH, this.worldX));
-        this.worldZ = Math.max(-Scene.HALF_HEIGHT, Math.min(Scene.HALF_HEIGHT, this.worldZ));
+        this.worldX = clamp(this.worldX, -Scene.HALF_WIDTH, Scene.HALF_WIDTH);
+        this.worldZ = clamp(this.worldZ, -Scene.HALF_HEIGHT, Scene.HALF_HEIGHT);
     }
 }

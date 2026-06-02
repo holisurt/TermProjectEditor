@@ -91,22 +91,20 @@ class AudioEngine {
         sourceNode.source.playbackRate.value = pitch;
 
         // Calculate distance from listener to sound source
-        const dx = x - listenerX;
-        const dz = z - listenerZ;
-        const distance = Math.sqrt(dx * dx + dz * dz);
+        const sourceDistance = distance(listenerX, listenerZ, x, z);
 
         // Apply muting and hearing range with distance attenuation.
         // The PannerNode is used for spatial placement only; gainNode owns volume.
         let finalVolume = 0;
 
-        if (!muted && distance <= hearingRange && distance <= spectatorHearingRange) {
-            const objectFactor = 1.0 - (distance / Math.max(1, hearingRange));
-            const listenerFactor = 1.0 - (distance / Math.max(1, spectatorHearingRange));
+        if (!muted && sourceDistance <= hearingRange && sourceDistance <= spectatorHearingRange) {
+            const objectFactor = 1.0 - (sourceDistance / Math.max(1, hearingRange));
+            const listenerFactor = 1.0 - (sourceDistance / Math.max(1, spectatorHearingRange));
             finalVolume = volume * Math.max(0, objectFactor) * Math.max(0, listenerFactor);
         }
 
         // Clamp to valid gain range (0.0 to 2.0 - Web Audio API supports this)
-        sourceNode.gainNode.gain.value = Math.max(0, Math.min(2, finalVolume));
+        sourceNode.gainNode.gain.value = clamp(finalVolume, 0, 2);
     }
 
     /**

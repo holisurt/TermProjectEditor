@@ -9,14 +9,92 @@ class UIController {
         this.audioEngine = audioEngine;
         this.renderer = renderer;
 
-        // Add Object modal state
-        this.currentAudioFile = null;
-        this.currentImageFile = null;
+        // Modal and panel state
         this.currentEditingObjectIndex = -1;
         this.objectsListSignature = '';
+        this.propertiesPanelSignature = '';
 
         // Toast notification
         this.toastTimeout = null;
+    }
+
+    el(id) {
+        return document.getElementById(id);
+    }
+
+    setModal(id, active) {
+        this.el(id).classList.toggle('active', active);
+    }
+
+    resetInputs(...ids) {
+        ids.forEach(id => { this.el(id).value = ''; });
+    }
+
+    createButton(text, className, onClick) {
+        const button = document.createElement('button');
+        button.className = className;
+        button.textContent = text;
+        button.addEventListener('click', onClick);
+        return button;
+    }
+
+    createEmptyState(text, padding = 12) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.cssText = `padding: ${padding}px; color: #a0a0a0; text-align: center; font-size: 12px;`;
+        emptyMsg.textContent = text;
+        return emptyMsg;
+    }
+
+    getObjectControlIds() {
+        return [
+            'volumeSlider', 'pitchSlider', 'hearingRangeSlider',
+            'brightnessSlider', 'saturationSlider', 'hueSlider',
+            'grayscaleSlider', 'blurSlider'
+        ];
+    }
+
+    setObjectControlsEnabled(enabled) {
+        this.getObjectControlIds().forEach(id => { this.el(id).disabled = !enabled; });
+        this.el('objectNameInput').disabled = !enabled;
+        this.el('muteCheckbox').disabled = !enabled;
+        if (!enabled) {
+            this.el('sceneInfoInput').value = '';
+            this.el('objectNameInput').value = '';
+            this.el('muteCheckbox').checked = false;
+        }
+    }
+
+    setSliderControl(sliderId, valueId, value, formatter = v => Number(v).toFixed(2)) {
+        this.el(sliderId).disabled = false;
+        this.el(sliderId).value = value;
+        this.el(valueId).textContent = formatter(value);
+    }
+
+    getPropertiesPanelSignature(obj) {
+        if (!obj) {
+            const spectator = this.scene.spectator;
+            return JSON.stringify({
+                selected: spectator.selected ? 'spectator' : 'none',
+                hearingRange: spectator.hearingRange,
+                imageSrc: spectator.image && spectator.image.src || '',
+                objectCount: this.scene.getObjects().length
+            });
+        }
+
+        return JSON.stringify({
+            selected: obj.id,
+            objectCount: this.scene.getObjects().length,
+            name: obj.name,
+            volume: obj.volume,
+            pitch: obj.pitch,
+            muted: obj.muted,
+            hearingRange: obj.hearingRange,
+            brightness: obj.brightness,
+            saturation: obj.saturation,
+            hue: obj.hue,
+            grayscale: obj.grayscale,
+            blur: obj.blur
+        });
     }
 
     /**
@@ -24,24 +102,16 @@ class UIController {
      */
     openAddObjectModal() {
         this.audioEngine.resume();
-        document.getElementById('addObjectModal').classList.add('active');
-        document.getElementById('modalObjectName').focus();
-        
-        // Clear inputs
-        document.getElementById('modalObjectName').value = '';
-        document.getElementById('modalAudioFile').value = '';
-        document.getElementById('modalImageFile').value = '';
-        this.currentAudioFile = null;
-        this.currentImageFile = null;
+        this.setModal('addObjectModal', true);
+        this.resetInputs('modalObjectName', 'modalAudioFile', 'modalImageFile');
+        this.el('modalObjectName').focus();
     }
 
     /**
      * Close Add Object modal
      */
     closeAddObjectModal() {
-        document.getElementById('addObjectModal').classList.remove('active');
-        this.currentAudioFile = null;
-        this.currentImageFile = null;
+        this.setModal('addObjectModal', false);
     }
 
     /**
@@ -50,9 +120,9 @@ class UIController {
     async onAddObjectConfirm() {
         await this.audioEngine.resume();
 
-        const nameInput = document.getElementById('modalObjectName');
-        const audioFileInput = document.getElementById('modalAudioFile');
-        const imageFileInput = document.getElementById('modalImageFile');
+        const nameInput = this.el('modalObjectName');
+        const audioFileInput = this.el('modalAudioFile');
+        const imageFileInput = this.el('modalImageFile');
 
         const name = nameInput.value.trim();
 
@@ -65,32 +135,12 @@ class UIController {
         const newObj = new AudioObject(name, 0, 0);
 
         try {
-            // Load audio file
             if (audioFileInput.files.length > 0) {
-                const audioFile = audioFileInput.files[0];
-                const arrayBuffer = await audioFile.arrayBuffer();
-                const audioBuffer = await this.audioEngine.decodeAudio(arrayBuffer);
-                
-                newObj.audioBuffer = audioBuffer;
-                newObj.audioPath = audioFile.name;
-                newObj.audioDataUrl = await this.fileToDataUrl(audioFile);
-
-                // Create and play audio source
-                const sourceNode = this.audioEngine.createSource(
-                    audioBuffer,
-                    newObj.x,
-                    newObj.z,
-                    newObj.volume,
-                    newObj.pitch
-                );
-                newObj.audioSource = sourceNode;
-                this.audioEngine.playSource(sourceNode);
+                await this.loadAudioFile(audioFileInput.files[0], newObj);
             }
 
-            // Load image file
             if (imageFileInput.files.length > 0) {
-                const imageFile = imageFileInput.files[0];
-                await this.loadImageFile(imageFile, newObj);
+                await this.loadImageFile(imageFileInput.files[0], newObj);
             }
 
             // Add to scene
@@ -115,35 +165,15 @@ class UIController {
      * @param {File} imageFile - Image file
      * @param {AudioObject} obj - Target object
      */
-    loadImageFile(imageFile, obj) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    obj.image = img;
-                    obj.imagePath = imageFile.name;
-                    obj.imageDataUrl = e.target.result;
-                    // Preserve aspect ratio: set height based on width to maintain proportion
-                    const baseSize = 40;
-                    obj.width = baseSize;
-                    obj.aspectRatio = img.width / img.height;
-                    obj.height = baseSize / obj.aspectRatio;
-                    resolve();
-                };
-                img.onerror = () => {
-                    reject(new Error('Failed to load image'));
-                };
-                img.src = e.target.result;
-            };
-
-            reader.onerror = () => {
-                reject(new Error('Failed to read image file'));
-            };
-
-            reader.readAsDataURL(imageFile);
-        });
+    async loadImageFile(imageFile, obj) {
+        const dataUrl = await this.fileToDataUrl(imageFile);
+        const img = await this.loadImageElement(dataUrl);
+        obj.image = img;
+        obj.imagePath = imageFile.name;
+        obj.imageDataUrl = dataUrl;
+        obj.width = 40;
+        obj.aspectRatio = img.width / img.height;
+        obj.height = obj.width / obj.aspectRatio;
     }
 
     /**
@@ -160,6 +190,15 @@ class UIController {
         });
     }
 
+    loadImageElement(dataUrl, errorMessage = 'Failed to load image') {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(errorMessage));
+            img.src = dataUrl;
+        });
+    }
+
     /**
      * Decode an audio data URL into an AudioBuffer.
      * @param {string} dataUrl - Audio data URL
@@ -171,26 +210,34 @@ class UIController {
         return this.audioEngine.decodeAudio(arrayBuffer);
     }
 
+    createAndPlaySource(obj, audioBuffer) {
+        const sourceNode = this.audioEngine.createSource(audioBuffer, obj.x, obj.z, obj.volume, obj.pitch);
+        obj.audioBuffer = audioBuffer;
+        obj.audioSource = sourceNode;
+        this.audioEngine.playSource(sourceNode);
+    }
+
+    async loadAudioFile(audioFile, obj, stopExisting = false) {
+        const audioBuffer = await this.audioEngine.decodeAudio(await audioFile.arrayBuffer());
+        if (stopExisting && obj.audioSource) this.audioEngine.stopSource(obj.audioSource);
+        obj.audioPath = audioFile.name;
+        obj.audioDataUrl = await this.fileToDataUrl(audioFile);
+        this.createAndPlaySource(obj, audioBuffer);
+    }
+
     /**
      * Restore an object's image from a saved data URL.
      * @param {AudioObject} obj - Object to update
      * @param {string} dataUrl - Image data URL
      * @returns {Promise<void>}
      */
-    loadObjectImageDataUrl(obj, dataUrl) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                obj.image = img;
-                obj.imageDataUrl = dataUrl;
-                obj.aspectRatio = img.width / img.height;
-                if (!obj.width) obj.width = 40;
-                obj.height = obj.width / obj.aspectRatio;
-                resolve();
-            };
-            img.onerror = () => reject(new Error('Failed to restore object image'));
-            img.src = dataUrl;
-        });
+    async loadObjectImageDataUrl(obj, dataUrl) {
+        const img = await this.loadImageElement(dataUrl, 'Failed to restore object image');
+        obj.image = img;
+        obj.imageDataUrl = dataUrl;
+        obj.aspectRatio = img.width / img.height;
+        if (!obj.width) obj.width = 40;
+        obj.height = obj.width / obj.aspectRatio;
     }
 
     /**
@@ -202,35 +249,26 @@ class UIController {
         const obj = this.scene.getSelectedObject();
         if (!obj) return;
 
-        // Convert value to appropriate type
         const numValue = parseFloat(value);
+        const rangeConfig = {
+            volume: [0, 2, 'volumeValue', v => v.toFixed(2), true],
+            pitch: [0.5, 2, 'pitchValue', v => v.toFixed(2), true],
+            hearingRange: [50, 1000, 'hearingRangeValue', v => `${v}px`, true],
+            brightness: [-1, 1],
+            saturation: [0, 2],
+            grayscale: [0, 1],
+            blur: [0, 1]
+        };
 
-        // Audio properties
-        if (propertyName === 'volume') {
-            obj.volume = Math.max(0, Math.min(2, numValue));
-            document.getElementById('volumeValue').textContent = obj.volume.toFixed(2);
-        } else if (propertyName === 'pitch') {
-            obj.pitch = Math.max(0.5, Math.min(2.0, numValue));
-            document.getElementById('pitchValue').textContent = obj.pitch.toFixed(2);
-        } else if (propertyName === 'hearingRange') {
-            obj.hearingRange = Math.max(50, Math.min(1000, numValue));
-            document.getElementById('hearingRangeValue').textContent = obj.hearingRange + 'px';
-        }
-        // Image properties
-        else if (propertyName === 'brightness') {
-            obj.brightness = Math.max(-1, Math.min(1, numValue));
-        } else if (propertyName === 'saturation') {
-            obj.saturation = Math.max(0, Math.min(2, numValue));
-        } else if (propertyName === 'hue') {
+        if (propertyName === 'hue') {
             obj.hue = ((numValue % 360) + 360) % 360;
-        } else if (propertyName === 'grayscale') {
-            obj.grayscale = Math.max(0, Math.min(1, numValue));
-        } else if (propertyName === 'blur') {
-            obj.blur = Math.max(0, Math.min(1, numValue));
+        } else if (rangeConfig[propertyName]) {
+            const [min, max, valueId, format] = rangeConfig[propertyName];
+            obj[propertyName] = clamp(numValue, min, max);
+            if (valueId) this.el(valueId).textContent = format(obj[propertyName]);
         }
 
-        // Update audio source if applicable
-        if (obj.audioSource && (propertyName === 'volume' || propertyName === 'pitch' || propertyName === 'hearingRange')) {
+        if (obj.audioSource && rangeConfig[propertyName] && rangeConfig[propertyName][4]) {
             this.updateAllAudioSources();
         }
     }
@@ -240,119 +278,47 @@ class UIController {
      * @param {AudioObject|null} obj - Object to display, or null
      */
     updatePropertiesPanel(obj) {
-        // Check if spectator is selected
+        const signature = this.getPropertiesPanelSignature(obj);
+        if (signature === this.propertiesPanelSignature) return;
+        this.propertiesPanelSignature = signature;
+
         const isSpectatorSelected = obj === null && this.scene.spectator.selected;
         
-        // Hide spectator properties by default
-        document.getElementById('spectatorPropertiesSection').style.display = 'none';
+        this.el('spectatorPropertiesSection').style.display = isSpectatorSelected ? 'block' : 'none';
         this.updateObjectsList();
 
         if (isSpectatorSelected) {
-            // Show spectator properties and hide object properties
-            document.getElementById('spectatorPropertiesSection').style.display = 'block';
-            
-            // Hide object controls
-            document.getElementById('sceneInfoInput').value = '';
-            document.getElementById('objectNameInput').disabled = true;
-            document.getElementById('objectNameInput').value = '';
-
-            const allSliders = [
-                'volumeSlider', 'pitchSlider', 'hearingRangeSlider',
-                'brightnessSlider', 'saturationSlider', 'hueSlider',
-                'grayscaleSlider', 'blurSlider'
-            ];
-
-            allSliders.forEach(id => {
-                document.getElementById(id).disabled = true;
-            });
-
-            document.getElementById('muteCheckbox').disabled = true;
-            document.getElementById('muteCheckbox').checked = false;
-
-            // Update spectator properties
-            document.getElementById('spectatorHearingRangeSlider').value = this.scene.spectator.hearingRange;
-            document.getElementById('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
-            
-            // Update spectator image preview
-            if (this.scene.spectator.image) {
-                document.getElementById('spectatorImagePreview').src = this.scene.spectator.image.src || '';
-            } else {
-                document.getElementById('spectatorImagePreview').src = '';
-            }
-
+            this.setObjectControlsEnabled(false);
+            this.el('spectatorHearingRangeSlider').value = this.scene.spectator.hearingRange;
+            this.el('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
+            this.el('spectatorImagePreview').src = this.scene.spectator.image ? this.scene.spectator.image.src || '' : '';
             return;
         }
 
         // Hide spectator properties if not selected
         if (!obj) {
-            // Disable all controls
-            document.getElementById('sceneInfoInput').value = '';
-            document.getElementById('objectNameInput').disabled = true;
-            document.getElementById('objectNameInput').value = '';
-
-            const allSliders = [
-                'volumeSlider', 'pitchSlider', 'hearingRangeSlider',
-                'brightnessSlider', 'saturationSlider', 'hueSlider',
-                'grayscaleSlider', 'blurSlider'
-            ];
-
-            allSliders.forEach(id => {
-                document.getElementById(id).disabled = true;
-            });
-
-            document.getElementById('muteCheckbox').disabled = true;
-            document.getElementById('muteCheckbox').checked = false;
-
+            this.setObjectControlsEnabled(false);
             return;
         }
 
-        // Enable and populate object controls
-        document.getElementById('sceneInfoInput').value = `${this.scene.getObjects().length} objects`;
-        
-        document.getElementById('objectNameInput').disabled = false;
-        document.getElementById('objectNameInput').value = obj.name;
+        this.setObjectControlsEnabled(true);
+        this.el('sceneInfoInput').value = `${this.scene.getObjects().length} objects`;
+        this.el('objectNameInput').value = obj.name;
+        this.el('muteCheckbox').checked = obj.muted;
+        this.setSliderControl('volumeSlider', 'volumeValue', obj.volume);
+        this.setSliderControl('pitchSlider', 'pitchValue', obj.pitch);
+        this.setSliderControl('hearingRangeSlider', 'hearingRangeValue', obj.hearingRange, v => `${v}px`);
 
-        // Audio sliders
-        document.getElementById('volumeSlider').disabled = false;
-        document.getElementById('volumeSlider').value = obj.volume;
-        document.getElementById('volumeValue').textContent = obj.volume.toFixed(2);
+        this.setSliderControl('brightnessSlider', 'brightnessValue', obj.brightness);
+        this.setSliderControl('saturationSlider', 'saturationValue', obj.saturation);
 
-        document.getElementById('pitchSlider').disabled = false;
-        document.getElementById('pitchSlider').value = obj.pitch;
-        document.getElementById('pitchValue').textContent = obj.pitch.toFixed(2);
+        this.el('hueSlider').disabled = false;
+        this.el('hueSlider').value = obj.hue;
+        this.el('hueValue').textContent = obj.hue.toFixed(0) + '°';
 
-        // Mute checkbox
-        document.getElementById('muteCheckbox').disabled = false;
-        document.getElementById('muteCheckbox').checked = obj.muted;
+        this.setSliderControl('grayscaleSlider', 'grayscaleValue', obj.grayscale);
+        this.setSliderControl('blurSlider', 'blurValue', obj.blur);
 
-        // Hearing range slider
-        document.getElementById('hearingRangeSlider').disabled = false;
-        document.getElementById('hearingRangeSlider').value = obj.hearingRange;
-        document.getElementById('hearingRangeValue').textContent = obj.hearingRange + 'px';
-
-        // Image sliders
-        document.getElementById('brightnessSlider').disabled = false;
-        document.getElementById('brightnessSlider').value = obj.brightness;
-        document.getElementById('brightnessValue').textContent = obj.brightness.toFixed(2);
-
-        document.getElementById('saturationSlider').disabled = false;
-        document.getElementById('saturationSlider').value = obj.saturation;
-        document.getElementById('saturationValue').textContent = obj.saturation.toFixed(2);
-
-        document.getElementById('hueSlider').disabled = false;
-        document.getElementById('hueSlider').value = obj.hue;
-        document.getElementById('hueValue').textContent = obj.hue.toFixed(0) + '°';
-
-        document.getElementById('grayscaleSlider').disabled = false;
-        document.getElementById('grayscaleSlider').value = obj.grayscale;
-        document.getElementById('grayscaleValue').textContent = obj.grayscale.toFixed(2);
-
-        document.getElementById('blurSlider').disabled = false;
-        document.getElementById('blurSlider').value = obj.blur;
-        document.getElementById('blurValue').textContent = obj.blur.toFixed(2);
-
-        // Update objects list highlighting
-        this.updateObjectsList();
     }
 
     /**
@@ -367,23 +333,23 @@ class UIController {
             hour12: false
         }).replace(/:/g, '-');
         
-        document.getElementById('sceneFilename').value = `scene_${today}_${timestamp}`;
-        document.getElementById('saveSceneModal').classList.add('active');
-        document.getElementById('sceneFilename').focus();
+        this.el('sceneFilename').value = `scene_${today}_${timestamp}`;
+        this.setModal('saveSceneModal', true);
+        this.el('sceneFilename').focus();
     }
 
     /**
      * Close Save Scene modal
      */
     closeSaveSceneModal() {
-        document.getElementById('saveSceneModal').classList.remove('active');
+        this.setModal('saveSceneModal', false);
     }
 
     /**
      * Handle Save Scene confirmation
      */
     onSaveSceneConfirm() {
-        const filenameInput = document.getElementById('sceneFilename');
+        const filenameInput = this.el('sceneFilename');
         const filename = filenameInput.value.trim();
 
         if (!filename) {
@@ -423,7 +389,7 @@ class UIController {
      * Open Load Scene modal
      */
     openLoadSceneModal() {
-        const sceneSelect = document.getElementById('sceneSelect');
+        const sceneSelect = this.el('sceneSelect');
         sceneSelect.innerHTML = '';
 
         // Get all saved scenes from localStorage
@@ -438,14 +404,14 @@ class UIController {
             });
         }
 
-        document.getElementById('loadSceneModal').classList.add('active');
+        this.setModal('loadSceneModal', true);
     }
 
     /**
      * Close Load Scene modal
      */
     closeLoadSceneModal() {
-        document.getElementById('loadSceneModal').classList.remove('active');
+        this.setModal('loadSceneModal', false);
     }
 
     /**
@@ -454,7 +420,7 @@ class UIController {
     async onLoadSceneConfirm() {
         await this.audioEngine.resume();
 
-        const sceneSelect = document.getElementById('sceneSelect');
+        const sceneSelect = this.el('sceneSelect');
         const sceneName = sceneSelect.value;
 
         if (!sceneName) {
@@ -483,16 +449,7 @@ class UIController {
 
                     if (objData.audioDataUrl) {
                         const audioBuffer = await this.decodeAudioDataUrl(objData.audioDataUrl);
-                        const sourceNode = this.audioEngine.createSource(
-                            audioBuffer,
-                            obj.x,
-                            obj.z,
-                            obj.volume,
-                            obj.pitch
-                        );
-                        obj.audioBuffer = audioBuffer;
-                        obj.audioSource = sourceNode;
-                        this.audioEngine.playSource(sourceNode);
+                        this.createAndPlaySource(obj, audioBuffer);
                     }
                 }
             }
@@ -510,6 +467,7 @@ class UIController {
                 window.inputHandler.scene = newScene;
             }
             this.objectsListSignature = '';
+            this.propertiesPanelSignature = '';
 
             // Update UI
             this.syncSceneBackgroundPreview();
@@ -530,21 +488,15 @@ class UIController {
      * Update Objects Library list
      */
     updateObjectsLibrary() {
-        const list = document.getElementById('objectsList');
+        const list = this.el('objectsList');
+        const objects = this.scene.getObjects();
         list.innerHTML = '';
 
-        this.scene.getObjects().forEach((obj, index) => {
+        objects.forEach((obj, index) => {
             const item = document.createElement('div');
-            item.className = 'library-item';
-
-            if (this.scene.selectedIndex === index) {
-                item.classList.add('selected');
-            }
-
+            item.className = 'library-item' + (this.scene.selectedIndex === index ? ' selected' : '');
             item.textContent = obj.name;
-            item.style.cursor = 'pointer';
             item.title = `Click to select "${obj.name}"`;
-
             item.addEventListener('click', () => {
                 this.scene.setSelectedIndex(index);
                 this.updateObjectsLibrary();
@@ -554,23 +506,14 @@ class UIController {
             list.appendChild(item);
         });
 
-        // Show empty state if no objects
-        if (this.scene.getObjects().length === 0) {
-            const emptyMsg = document.createElement('div');
-            emptyMsg.style.padding = '16px';
-            emptyMsg.style.color = '#a0a0a0';
-            emptyMsg.style.textAlign = 'center';
-            emptyMsg.style.fontSize = '12px';
-            emptyMsg.textContent = 'No objects in scene.\nClick "Add Object" to create one.';
-            list.appendChild(emptyMsg);
-        }
+        if (objects.length === 0) list.appendChild(this.createEmptyState('No objects in scene.\nClick "Add Object" to create one.', 16));
     }
 
     /**
      * Toggle Objects Library sidebar
      */
     toggleObjectsLibrary() {
-        const library = document.getElementById('objectsLibrary');
+        const library = this.el('objectsLibrary');
         library.classList.toggle('active');
     }
 
@@ -598,7 +541,7 @@ class UIController {
         }
 
         // Create or get toast element
-        let toast = document.getElementById('toast');
+        let toast = this.el('toast');
         if (!toast) {
             toast = document.createElement('div');
             toast.id = 'toast';
@@ -667,7 +610,7 @@ class UIController {
      * Update the objects list in the properties panel
      */
     updateObjectsList(force = false) {
-        const container = document.getElementById('objectsListContainer');
+        const container = this.el('objectsListContainer');
         const objects = this.scene.getObjects();
         const signature = JSON.stringify({
             selectedIndex: this.scene.selectedIndex,
@@ -682,10 +625,7 @@ class UIController {
         container.innerHTML = '';
 
         if (objects.length === 0) {
-            const emptyMsg = document.createElement('div');
-            emptyMsg.style.cssText = 'padding: 12px; color: #a0a0a0; text-align: center; font-size: 12px;';
-            emptyMsg.textContent = 'No objects in scene';
-            container.appendChild(emptyMsg);
+            container.appendChild(this.createEmptyState('No objects in scene'));
             return;
         }
 
@@ -699,36 +639,21 @@ class UIController {
                 this.updatePropertiesPanel(this.scene.getSelectedObject());
             });
             
-            // Object name label
             const nameSpan = document.createElement('span');
             nameSpan.className = 'object-item-name';
             nameSpan.textContent = obj.name;
-            nameSpan.style.cursor = 'pointer';
             item.appendChild(nameSpan);
 
-            // Action buttons container
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'object-item-actions';
-
-            // Edit button
-            const editBtn = document.createElement('button');
-            editBtn.className = 'button small';
-            editBtn.textContent = 'Edit';
-            editBtn.addEventListener('click', (e) => {
+            actionsDiv.appendChild(this.createButton('Edit', 'button small', (e) => {
                 e.stopPropagation();
                 this.openEditObjectModal(obj, index);
-            });
-            actionsDiv.appendChild(editBtn);
-
-            // Delete button
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'button small danger';
-            deleteBtn.textContent = 'Delete';
-            deleteBtn.addEventListener('click', (e) => {
+            }));
+            actionsDiv.appendChild(this.createButton('Delete', 'button small danger', (e) => {
                 e.stopPropagation();
                 this.deleteObject(index);
-            });
-            actionsDiv.appendChild(deleteBtn);
+            }));
 
             item.appendChild(actionsDiv);
             container.appendChild(item);
@@ -763,19 +688,17 @@ class UIController {
         this.scene.setSelectedIndex(index);
         this.currentEditingObjectIndex = index;
 
-        document.getElementById('editObjectName').textContent = obj.name;
-        document.getElementById('editObjectNameInput').value = obj.name;
-        document.getElementById('editAudioFile').value = '';
-        document.getElementById('editImageFile').value = '';
-
-        document.getElementById('editObjectModal').classList.add('active');
+        this.el('editObjectName').textContent = obj.name;
+        this.el('editObjectNameInput').value = obj.name;
+        this.resetInputs('editAudioFile', 'editImageFile');
+        this.setModal('editObjectModal', true);
     }
 
     /**
      * Close Edit Object modal
      */
     closeEditObjectModal() {
-        document.getElementById('editObjectModal').classList.remove('active');
+        this.setModal('editObjectModal', false);
         this.currentEditingObjectIndex = -1;
     }
 
@@ -793,47 +716,22 @@ class UIController {
         const obj = this.scene.getObjects()[this.currentEditingObjectIndex];
         if (!obj) return;
 
-        const newName = document.getElementById('editObjectNameInput').value.trim();
-        const audioFileInput = document.getElementById('editAudioFile');
-        const imageFileInput = document.getElementById('editImageFile');
+        const newName = this.el('editObjectNameInput').value.trim();
+        const audioFileInput = this.el('editAudioFile');
+        const imageFileInput = this.el('editImageFile');
 
         if (newName && newName !== obj.name) {
             obj.name = newName;
         }
 
         try {
-            // Replace audio file if provided
             if (audioFileInput.files.length > 0) {
-                const audioFile = audioFileInput.files[0];
-                const arrayBuffer = await audioFile.arrayBuffer();
-                const audioBuffer = await this.audioEngine.decodeAudio(arrayBuffer);
-                
-                // Stop old source if playing
-                if (obj.audioSource) {
-                    this.audioEngine.stopSource(obj.audioSource);
-                }
-
-                obj.audioBuffer = audioBuffer;
-                obj.audioPath = audioFile.name;
-                obj.audioDataUrl = await this.fileToDataUrl(audioFile);
-
-                // Create new source and play
-                const sourceNode = this.audioEngine.createSource(
-                    audioBuffer,
-                    obj.x,
-                    obj.z,
-                    obj.volume,
-                    obj.pitch
-                );
-                obj.audioSource = sourceNode;
-                this.audioEngine.playSource(sourceNode);
+                await this.loadAudioFile(audioFileInput.files[0], obj, true);
                 this.updateAllAudioSources();
             }
 
-            // Replace image file if provided
             if (imageFileInput.files.length > 0) {
-                const imageFile = imageFileInput.files[0];
-                await this.loadImageFile(imageFile, obj);
+                await this.loadImageFile(imageFileInput.files[0], obj);
             }
 
             const editedIndex = this.currentEditingObjectIndex;
@@ -857,8 +755,8 @@ class UIController {
     onSpectatorPropertyChange(propertyName, value) {
         if (propertyName === 'hearingRange') {
             const numValue = parseFloat(value);
-            this.scene.spectator.hearingRange = Math.max(50, Math.min(2000, numValue));
-            document.getElementById('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
+            this.scene.spectator.hearingRange = clamp(numValue, 50, 2000);
+            this.el('spectatorHearingRangeValue').textContent = this.scene.spectator.hearingRange + 'px';
             this.updateAllAudioSources();
         }
     }
@@ -867,7 +765,7 @@ class UIController {
      * Handle spectator image file upload
      */
     setupSpectatorImageListener() {
-        const spectatorImageInput = document.getElementById('spectatorImageFile');
+        const spectatorImageInput = this.el('spectatorImageFile');
         
         spectatorImageInput.addEventListener('change', async (e) => {
             if (e.target.files.length > 0) {
@@ -886,38 +784,20 @@ class UIController {
      * Load spectator image from file with aspect ratio preservation
      * @param {File} imageFile - Image file
      */
-    loadSpectatorImage(imageFile) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    this.scene.spectator.image = img;
-                    this.scene.spectator.imagePath = imageFile.name;
-                    this.scene.spectator.aspectRatio = img.width / img.height;
-                    document.getElementById('spectatorImagePreview').src = e.target.result;
-                    resolve();
-                };
-                img.onerror = () => {
-                    reject(new Error('Failed to load image'));
-                };
-                img.src = e.target.result;
-            };
-
-            reader.onerror = () => {
-                reject(new Error('Failed to read image file'));
-            };
-
-            reader.readAsDataURL(imageFile);
-        });
+    async loadSpectatorImage(imageFile) {
+        const dataUrl = await this.fileToDataUrl(imageFile);
+        const img = await this.loadImageElement(dataUrl);
+        this.scene.spectator.image = img;
+        this.scene.spectator.imagePath = imageFile.name;
+        this.scene.spectator.aspectRatio = img.width / img.height;
+        this.el('spectatorImagePreview').src = dataUrl;
     }
 
     /**
      * Register scene background upload controls.
      */
     setupSceneBackgroundListener() {
-        const backgroundInput = document.getElementById('sceneBackgroundFile');
+        const backgroundInput = this.el('sceneBackgroundFile');
         if (!backgroundInput) return;
 
         backgroundInput.addEventListener('change', async (e) => {
@@ -938,28 +818,11 @@ class UIController {
      * Load scene background from an image file.
      * @param {File} imageFile - Background image file
      */
-    loadSceneBackgroundImage(imageFile) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    this.scene.setBackgroundImage(e.target.result, imageFile.name);
-                    const preview = document.getElementById('sceneBackgroundPreview');
-                    if (preview) {
-                        preview.src = e.target.result;
-                        preview.style.display = 'block';
-                    }
-                    resolve();
-                };
-                img.onerror = () => reject(new Error('Failed to load background image'));
-                img.src = e.target.result;
-            };
-
-            reader.onerror = () => reject(new Error('Failed to read background image'));
-            reader.readAsDataURL(imageFile);
-        });
+    async loadSceneBackgroundImage(imageFile) {
+        const dataUrl = await this.fileToDataUrl(imageFile);
+        await this.loadImageElement(dataUrl, 'Failed to load background image');
+        this.scene.setBackgroundImage(dataUrl, imageFile.name);
+        this.syncSceneBackgroundPreview();
     }
 
     /**
@@ -967,8 +830,8 @@ class UIController {
      */
     clearSceneBackground() {
         this.scene.setBackgroundImage('', '');
-        const input = document.getElementById('sceneBackgroundFile');
-        const preview = document.getElementById('sceneBackgroundPreview');
+        const input = this.el('sceneBackgroundFile');
+        const preview = this.el('sceneBackgroundPreview');
 
         if (input) input.value = '';
         if (preview) {
@@ -982,7 +845,7 @@ class UIController {
      * Reflect the current scene background state in the preview.
      */
     syncSceneBackgroundPreview() {
-        const preview = document.getElementById('sceneBackgroundPreview');
+        const preview = this.el('sceneBackgroundPreview');
         if (!preview) return;
 
         if (this.scene.backgroundImageSrc) {

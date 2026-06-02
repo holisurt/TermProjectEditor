@@ -19,39 +19,11 @@ const AppState = {
 };
 
 // Make state available globally for backward compatibility
-Object.defineProperty(window, 'audioEngine', {
-    get: () => AppState.audioEngine,
-    set: (v) => { AppState.audioEngine = v; }
-});
-
-Object.defineProperty(window, 'scene', {
-    get: () => AppState.scene,
-    set: (v) => { AppState.scene = v; }
-});
-
-Object.defineProperty(window, 'renderer', {
-    get: () => AppState.renderer,
-    set: (v) => { AppState.renderer = v; }
-});
-
-Object.defineProperty(window, 'inputHandler', {
-    get: () => AppState.inputHandler,
-    set: (v) => { AppState.inputHandler = v; }
-});
-
-Object.defineProperty(window, 'uiController', {
-    get: () => AppState.uiController,
-    set: (v) => { AppState.uiController = v; }
-});
-
-Object.defineProperty(window, 'keyStates', {
-    get: () => AppState.keyStates,
-    set: (v) => { AppState.keyStates = v; }
-});
-
-Object.defineProperty(window, 'lastTime', {
-    get: () => AppState.lastTime,
-    set: (v) => { AppState.lastTime = v; }
+['audioEngine', 'scene', 'renderer', 'inputHandler', 'uiController', 'keyStates', 'lastTime'].forEach(key => {
+    Object.defineProperty(window, key, {
+        get: () => AppState[key],
+        set: (value) => { AppState[key] = value; }
+    });
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -82,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeyboardListeners();
     setupCanvasListeners();
     setupUIListeners();
-    setupFileInputListeners();
     setupMenuListeners();
     AppState.uiController.setupSpectatorImageListener();
     AppState.uiController.setupSceneBackgroundListener();
@@ -133,16 +104,16 @@ function setupKeyboardListeners() {
 function setupCanvasListeners() {
     const canvas = document.getElementById('sceneCanvas');
 
-    // Use input handler for mouse events
-    canvas.addEventListener('mousedown', (e) => AppState.inputHandler.onMouseDown(e));
-    canvas.addEventListener('mousemove', (e) => AppState.inputHandler.onMouseMove(e));
-    canvas.addEventListener('mouseup', (e) => AppState.inputHandler.onMouseUp(e));
-    canvas.addEventListener('mouseleave', (e) => AppState.inputHandler.onMouseUp(e));
+    [
+        ['mousedown', 'onMouseDown'],
+        ['mousemove', 'onMouseMove'],
+        ['mouseup', 'onMouseUp'],
+        ['mouseleave', 'onMouseUp']
+    ].forEach(([eventName, handlerName]) => {
+        canvas.addEventListener(eventName, (e) => AppState.inputHandler[handlerName](e));
+    });
 
-    // Register wheel event for zoom (passive: false allows preventDefault)
     canvas.addEventListener('wheel', (e) => AppState.inputHandler.onWheel(e), { passive: false });
-
-    // Prevent context menu on right-click
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
@@ -160,39 +131,10 @@ function setupUIListeners() {
         }
     });
 
-    // Click outside modals to close them
-    const modals = [
-        { modal: document.getElementById('addObjectModal'), overlay: 'addObjectModal' },
-        { modal: document.getElementById('saveSceneModal'), overlay: 'saveSceneModal' },
-        { modal: document.getElementById('loadSceneModal'), overlay: 'loadSceneModal' },
-        { modal: document.getElementById('editObjectModal'), overlay: 'editObjectModal' }
-    ];
-
-    modals.forEach(({ modal }) => {
-        const overlayEl = modal.querySelector('.modal-overlay');
-        if (overlayEl) {
-            overlayEl.addEventListener('click', () => {
-                modal.classList.remove('active');
-            });
-        }
-    });
-}
-
-// ═══════════════════════════════════════════════════════════
-// FILE INPUT LISTENERS
-// ═══════════════════════════════════════════════════════════
-
-function setupFileInputListeners() {
-    // Store file references when files are selected
-    const audioFileInput = document.getElementById('modalAudioFile');
-    const imageFileInput = document.getElementById('modalImageFile');
-
-    audioFileInput.addEventListener('change', () => {
-        AppState.uiController.currentAudioFile = audioFileInput.files[0] || null;
-    });
-
-    imageFileInput.addEventListener('change', () => {
-        AppState.uiController.currentImageFile = imageFileInput.files[0] || null;
+    ['addObjectModal', 'saveSceneModal', 'loadSceneModal', 'editObjectModal'].forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        const overlay = modal.querySelector('.modal-overlay');
+        if (overlay) overlay.addEventListener('click', () => modal.classList.remove('active'));
     });
 }
 
@@ -216,23 +158,6 @@ function setupMenuListeners() {
         }
     });
 
-    // Setup menu buttons
-    setupMenuButton('addObjectBtn', () => AppState.uiController.openAddObjectModal());
-    setupMenuButton('saveSceneBtn', () => AppState.uiController.openSaveSceneModal());
-    setupMenuButton('loadSceneBtn', () => AppState.uiController.openLoadSceneModal());
-    setupMenuButton('togglePanelBtn', () => AppState.uiController.toggleObjectsLibrary());
-}
-
-/**
- * Setup a menu button with click handler
- * @param {string} buttonId - Button element ID
- * @param {Function} handler - Click handler
- */
-function setupMenuButton(buttonId, handler) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-        button.addEventListener('click', handler);
-    }
 }
 
 // ═══════════════════════════════════════════════════════════
